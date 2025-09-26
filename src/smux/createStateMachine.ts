@@ -28,6 +28,10 @@ export type StateMachine<
   TEvent extends string = string,
 > = {
   state: MachineState<TState, TEvent>;
+  /** Subscribe to state changes. Returns an unsubscribe function. */
+  subscribe: (
+    listener: (state: MachineState<TState, TEvent>) => void,
+  ) => () => void;
   send: (event: TEvent) => void;
   /** Stops the machine and runs any pending cleanup. */
   stop: () => void;
@@ -44,6 +48,22 @@ export function createStateMachine<
   let currentState = config.initial;
   let cleanup: (() => void) | undefined;
 
+  // subscribers to state changes
+  const listeners = new Set<(state: MachineState<TState, TEvent>) => void>();
+
+  // cached state object to maintain referential stability when not changing
+  let cachedState: MachineState<TState, TEvent> = {
+    value: currentState,
+    nextEvents: [],
+  };
+
+  const recomputeCachedState = () => {
+    cachedState = {
+      value: currentState,
+      nextEvents: getNextEvents(),
+    };
+  };
+
   const runEnterEffect = () => {
     const effect = config.states[currentState]?.effect;
     if (typeof effect === "function") {
@@ -57,11 +77,20 @@ export function createStateMachine<
     return Object.keys(on) as TEvent[];
   };
 
+  const notify = () => {
+    // ensure cached state matches current before notifying
+    recomputeCachedState();
+    for (const l of listeners) l(cachedState);
+  };
+
   const machine: StateMachine<TState, TEvent> = {
     get state() {
-      return {
-        value: currentState,
-        nextEvents: getNextEvents(),
+      return cachedState;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
       };
     },
     send(event: TEvent) {
@@ -69,7 +98,7 @@ export function createStateMachine<
         | Partial<Record<TEvent, TState>>
         | undefined;
       const target = on?.[event];
-      if (!target) return;
+      if (!target || target === currentState) return; // no change
 
       // run cleanup for current state if exists
       if (cleanup) {
@@ -82,6 +111,7 @@ export function createStateMachine<
 
       currentState = target;
       runEnterEffect();
+      notify();
     },
     stop() {
       if (cleanup) {
@@ -94,7 +124,8 @@ export function createStateMachine<
     },
   };
 
-  // run enter effect for initial state
+  // initialize cached state and run enter effect for initial state
+  recomputeCachedState();
   runEnterEffect();
 
   return machine;

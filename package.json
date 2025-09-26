@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint .",
+    "typecheck": "tsgo --project tsconfig.json --noEmit",
     "preview": "vite preview",
     "prettier:write": "prettier . --write",
     "prettier:check": "prettier . --check",
@@ -22,14 +23,14 @@
     "@prettier/plugin-oxc": "^0.0.4",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
+    "@typescript/native-preview": "7.0.0-dev.20250926.1",
     "@vitejs/plugin-react": "^5.0.3",
-    "oxlint": "^0.9.6",
+    "@vitest/coverage-v8": "^3.2.4",
+    "oxlint": "^1.18.0",
     "prettier": "^3.3.3",
-    "typescript": "~5.8.3",
+    "typescript": "~5.9.2",
     "vite": "npm:rolldown-vite@7.1.12",
-    "vitest": "^2.1.4",
-    "@vitest/coverage-v8": "^2.1.4",
-    "jsdom": "^25.0.1"
+    "vitest": "^3.2.4"
   },
   "pnpm": {
     "overrides": {
