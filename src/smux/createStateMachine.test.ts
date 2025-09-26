@@ -62,3 +62,77 @@ describe("createStateMachine", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("createStateMachine run effects", () => {
+  it("runs enter effect for initial state", () => {
+    const runIdle = vi.fn();
+    const cfg: MachineConfig<State, Event> = {
+      initial: "idle",
+      states: {
+        idle: { on: { FETCH: "loading" }, run: runIdle },
+        loading: { on: { RESOLVE: "success" } },
+        success: { on: {} },
+      },
+    };
+    createStateMachine<State, Event>(cfg);
+    expect(runIdle).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls cleanup on transition before running next enter effect", () => {
+    const cleanup = vi.fn();
+    const runIdle = vi.fn(() => cleanup);
+    const runLoading = vi.fn();
+    const cfg: MachineConfig<State, Event> = {
+      initial: "idle",
+      states: {
+        idle: { on: { FETCH: "loading" }, run: runIdle },
+        loading: { on: { RESOLVE: "success" }, run: runLoading },
+        success: { on: {} },
+      },
+    };
+    const machine = createStateMachine<State, Event>(cfg);
+
+    machine.send("FETCH");
+
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(runLoading).toHaveBeenCalledTimes(1);
+  });
+
+  it("stop() triggers pending cleanup only once", () => {
+    const cleanup = vi.fn();
+    const runIdle = vi.fn(() => cleanup);
+    const cfg: MachineConfig<State, Event> = {
+      initial: "idle",
+      states: {
+        idle: { on: { FETCH: "loading" }, run: runIdle },
+        loading: { on: { RESOLVE: "success" } },
+        success: { on: {} },
+      },
+    };
+    const machine = createStateMachine<State, Event>(cfg);
+
+    machine.stop();
+    machine.stop();
+
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores self-transition and does not run cleanup/effect again", () => {
+    const cleanup = vi.fn();
+    const runIdle = vi.fn(() => cleanup);
+    const cfg: MachineConfig<"idle", "STAY"> = {
+      initial: "idle",
+      states: {
+        idle: { on: { STAY: "idle" }, run: runIdle },
+      },
+    };
+    const machine = createStateMachine(cfg);
+
+    expect(runIdle).toHaveBeenCalledTimes(1);
+
+    machine.send("STAY");
+
+    expect(cleanup).not.toHaveBeenCalled();
+    expect(runIdle).toHaveBeenCalledTimes(1);
+  });
+});
