@@ -62,6 +62,24 @@ export function createStateMachine<
     nextEvents: [],
   };
 
+  function invalidateToken() {
+    token = Symbol("smux_token");
+  }
+
+  function safeCleanup() {
+    try {
+      cleanup?.();
+    } finally {
+      cleanup = undefined;
+    }
+  }
+
+  function getCurrentOn(): Partial<Record<TEvent, TState>> | undefined {
+    return config.states[currentState]?.on as
+      | Partial<Record<TEvent, TState>>
+      | undefined;
+  }
+
   function recomputeCachedState() {
     cachedState = {
       value: currentState,
@@ -73,21 +91,24 @@ export function createStateMachine<
     const effect = config.states[currentState]?.run as
       | ((ctx: RunContext<TEvent>) => void | (() => void))
       | undefined;
-    if (typeof effect === "function") {
-      const myToken = token;
-      const guardedSend = (event: TEvent) => {
-        if (token !== myToken) {
-          return;
-        }
-        machine.send(event);
-      };
-      const maybeCleanup = effect({ send: guardedSend });
-      if (typeof maybeCleanup === "function") cleanup = maybeCleanup;
+    if (typeof effect !== "function") {
+      return;
+    }
+    const myToken = token;
+    const guardedSend = (event: TEvent) => {
+      if (token !== myToken) {
+        return;
+      }
+      machine.send(event);
+    };
+    const maybeCleanup = effect({ send: guardedSend });
+    if (typeof maybeCleanup === "function") {
+      cleanup = maybeCleanup;
     }
   }
 
   function getNextEvents(): TEvent[] {
-    const on = config.states[currentState]?.on ?? {};
+    const on = getCurrentOn() ?? {};
     return Object.keys(on) as TEvent[];
   }
 
@@ -110,41 +131,30 @@ export function createStateMachine<
       };
     },
     send(event: TEvent) {
-      const on = config.states[currentState]?.on as
-        | Partial<Record<TEvent, TState>>
-        | undefined;
-      const target = on?.[event];
+      const target = getCurrentOn()?.[event];
       if (!target || target === currentState) {
         // no change
         return;
       }
 
-      try {
-        cleanup?.();
-      } finally {
-        cleanup = undefined;
-      }
+      safeCleanup();
 
       // invalidate previous run's send by rotating the token and prepare for the new state
-      token = Symbol("smux_token");
+      invalidateToken();
       currentState = target;
       runEnterEffect();
       notify();
     },
     stop() {
-      try {
-        cleanup?.();
-      } finally {
-        cleanup = undefined;
-      }
+      safeCleanup();
       // invalidate any pending sends after stop
-      token = Symbol("smux_token");
+      invalidateToken();
     },
   };
 
   // initialize cached state and run enter effect for initial state
   recomputeCachedState();
-  token = Symbol("smux_token");
+  invalidateToken();
   runEnterEffect();
 
   return machine;
