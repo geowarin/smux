@@ -59,6 +59,8 @@ coding guidelines
 - Write explicit check against `null` and `undefined`, do not rely on truthiness.
 - Exports must include file extension.
 - prefer interfaces to types.
+- always add brackets after if statements and for loops
+- Use descriptive variable names without being too lengthy
 
 Notes for Junie
 

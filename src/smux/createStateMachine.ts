@@ -1,7 +1,7 @@
 export type StateConfig = {
   on?: Record<string, string>;
   /** Effect that runs on entering the state. If it returns a function, it will be called when exiting the state. */
-  effect?: () => void | (() => void);
+  run?: () => void | (() => void);
 };
 
 export type MachineConfig<
@@ -65,7 +65,7 @@ export function createStateMachine<
   };
 
   const runEnterEffect = () => {
-    const effect = config.states[currentState]?.effect;
+    const effect = config.states[currentState]?.run;
     if (typeof effect === "function") {
       const maybeCleanup = effect();
       if (typeof maybeCleanup === "function") cleanup = maybeCleanup;
@@ -80,7 +80,9 @@ export function createStateMachine<
   const notify = () => {
     // ensure cached state matches current before notifying
     recomputeCachedState();
-    for (const l of listeners) l(cachedState);
+    for (const listener of listeners) {
+      listener(cachedState);
+    }
   };
 
   const machine: StateMachine<TState, TEvent> = {
