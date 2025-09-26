@@ -1,11 +1,25 @@
 :root {
+  --bg: #0f1115;
+  --fg: rgba(255, 255, 255, 0.87);
+  --muted-fg: #c9d1d9;
+  --link: #8ab4ff;
+  --link-hover: #a8c7fa;
+  --border: #2a2f3a;
+  --card: #151922;
+  --btn-bg: #1f2430;
+  --btn-bg-hover: #2a3140;
+  --btn-border: #3a4152;
+  --accent: #7aa2f7;
+  --accent-border: #628ef2;
+  --error: #ff6b6b;
+
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--fg);
+  background-color: var(--bg);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,21 +27,60 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Light theme overrides */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --fg: #213547;
+    --muted-fg: #4b5563;
+    --link: #3b82f6;
+    --link-hover: #2563eb;
+    --border: #e5e7eb;
+    --card: #f9fafb;
+    --btn-bg: #f3f4f6;
+    --btn-bg-hover: #e5e7eb;
+    --btn-border: #d1d5db;
+    --accent: #2563eb;
+    --accent-border: #1d4ed8;
+    --error: #dc2626;
+  }
+}
+
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--link);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--link-hover);
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* App layout helpers */
+.app {
+  padding: 16px;
+}
+
+.controls {
+  margin-bottom: 12px;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.error-text {
+  color: var(--error);
+  white-space: pre-wrap;
 }
 
 h1 {
@@ -37,32 +90,30 @@ h1 {
 
 button {
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--btn-border);
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--btn-bg);
+  color: var(--fg);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: var(--accent-border);
+  background-color: var(--btn-bg-hover);
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* Mermaid container tweaks: ensure diagram adapts to theme */
+svg.mermaid {
+  max-width: 100%;
+  height: auto;
 }

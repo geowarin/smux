@@ -20,13 +20,13 @@ export function App() {
   const [state, send] = useStateMachine(machine);
 
   return (
-    <div style={{ padding: 16 }}>
+    <div className="app">
       <h1>State Machine Diagram</h1>
-      <div style={{ marginBottom: 12 }}>
+      <div className="controls">
         <div>
           Current state: <strong>{state.value}</strong>
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <div className="button-row">
           {state.nextEvents.map((evt) => (
             <button key={evt} onClick={() => send(evt as never)}>
               {evt}
@@ -45,7 +45,15 @@ function MermaidDiagram({ smConfig }: { smConfig: MachineConfig }) {
   const [svg, setSvg] = useState<string>("");
 
   useEffect(() => {
-    mermaid.initialize({ startOnLoad: false });
+    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    const theme = mql.matches ? "dark" : "default";
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme,
+      // darkMode: true,
+      themeVariables: { background: "transparent" },
+    });
 
     mermaid
       .render("diagram", definition)
@@ -58,7 +66,7 @@ function MermaidDiagram({ smConfig }: { smConfig: MachineConfig }) {
   }, [definition]);
 
   if (error != null) {
-    return <pre style={{ color: "red" }}>{error}</pre>;
+    return <pre className="error-text">{error}</pre>;
   }
 
   return <div dangerouslySetInnerHTML={{ __html: svg }} />;
