@@ -51,6 +51,7 @@ export function createStateMachine<
 >(config: MachineConfig<TState, TEvent>): StateMachine<TState, TEvent> {
   let currentState = config.initial;
   let cleanup: (() => void) | undefined;
+  let epoch = 0;
 
   // subscribers to state changes
   const listeners = new Set<(state: MachineState<TState, TEvent>) => void>();
@@ -73,7 +74,14 @@ export function createStateMachine<
       | ((ctx: RunContext<TEvent>) => void | (() => void))
       | undefined;
     if (typeof effect === "function") {
-      const maybeCleanup = effect({ send: machine.send });
+      const myEpoch = epoch;
+      const guardedSend = (event: TEvent) => {
+        if (epoch !== myEpoch) {
+          return;
+        }
+        machine.send(event);
+      };
+      const maybeCleanup = effect({ send: guardedSend });
       if (typeof maybeCleanup === "function") cleanup = maybeCleanup;
     }
   };
@@ -117,6 +125,8 @@ export function createStateMachine<
         }
       }
 
+      // invalidate previous run's send and prepare a new epoch for the new state
+      epoch++;
       currentState = target;
       runEnterEffect();
       notify();
@@ -129,11 +139,14 @@ export function createStateMachine<
           cleanup = undefined;
         }
       }
+      // invalidate any pending sends after stop
+      epoch++;
     },
   };
 
   // initialize cached state and run enter effect for initial state
   recomputeCachedState();
+  epoch++;
   runEnterEffect();
 
   return machine;

@@ -169,3 +169,44 @@ describe("run effect send support", () => {
     vi.useRealTimers();
   });
 });
+
+describe("run effect send becomes inert after exit", () => {
+  it("does not dispatch when called after transitioning away", () => {
+    vi.useFakeTimers();
+
+    type S = "a" | "b" | "c";
+    type E = "GO" | "NEXT";
+
+    const onARun = vi.fn(({ send }: { send: (e: E) => void }) => {
+      setTimeout(() => {
+        send("NEXT");
+      }, 10);
+    });
+
+    const cfg: MachineConfig<S, E> = {
+      initial: "a",
+      states: {
+        a: { on: { GO: "b" }, run: onARun },
+        b: { on: { NEXT: "c" } },
+        c: { on: {} },
+      },
+    };
+
+    const machine = createStateMachine<S, E>(cfg);
+    const listener = vi.fn();
+    machine.subscribe(listener);
+
+    expect(machine.state.value).toBe("a");
+
+    machine.send("GO");
+    expect(machine.state.value).toBe("b");
+
+    vi.advanceTimersByTime(10);
+
+    // If stale send were active, we'd move to "c" and notify again.
+    expect(machine.state.value).toBe("b");
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+});
