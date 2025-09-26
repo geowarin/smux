@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "check": "pnpm format && pnpm run typecheck && pnpm run lint",
     "lint": "oxlint .",
     "typecheck": "tsgo --project tsconfig.json --noEmit",
     "preview": "vite preview",
-    "prettier:write": "prettier . --write",
-    "prettier:check": "prettier . --check",
+    "format": "prettier . --write",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
