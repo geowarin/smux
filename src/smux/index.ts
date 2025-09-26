@@ -5,3 +5,4 @@ export type {
   MachineState,
   StateMachine,
 } from "./createStateMachine.ts";
+export { buildMermaidDiagram } from "./mermaid/buildMermaidDiagram.ts";

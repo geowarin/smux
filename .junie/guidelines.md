@@ -51,6 +51,7 @@ When to ask for help
 
 coding guidelines
 
+- Do not add code comments unless they are absolutely necessary.
 - Use functional React components only; no class components.
 - Add a minimal test for each new public function or component behavior.
 - Avoid default exports in new modules; use named exports.
