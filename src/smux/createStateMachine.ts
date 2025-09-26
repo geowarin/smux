@@ -51,7 +51,7 @@ export function createStateMachine<
 >(config: MachineConfig<TState, TEvent>): StateMachine<TState, TEvent> {
   let currentState = config.initial;
   let cleanup: (() => void) | undefined;
-  let epoch = 0;
+  let token: symbol = Symbol("smux_token");
 
   // subscribers to state changes
   const listeners = new Set<(state: MachineState<TState, TEvent>) => void>();
@@ -62,21 +62,21 @@ export function createStateMachine<
     nextEvents: [],
   };
 
-  const recomputeCachedState = () => {
+  function recomputeCachedState() {
     cachedState = {
       value: currentState,
       nextEvents: getNextEvents(),
     };
-  };
+  }
 
-  const runEnterEffect = () => {
+  function runEnterEffect() {
     const effect = config.states[currentState]?.run as
       | ((ctx: RunContext<TEvent>) => void | (() => void))
       | undefined;
     if (typeof effect === "function") {
-      const myEpoch = epoch;
+      const myToken = token;
       const guardedSend = (event: TEvent) => {
-        if (epoch !== myEpoch) {
+        if (token !== myToken) {
           return;
         }
         machine.send(event);
@@ -84,20 +84,20 @@ export function createStateMachine<
       const maybeCleanup = effect({ send: guardedSend });
       if (typeof maybeCleanup === "function") cleanup = maybeCleanup;
     }
-  };
+  }
 
-  const getNextEvents = (): TEvent[] => {
+  function getNextEvents(): TEvent[] {
     const on = config.states[currentState]?.on ?? {};
     return Object.keys(on) as TEvent[];
-  };
+  }
 
-  const notify = () => {
+  function notify() {
     // ensure cached state matches current before notifying
     recomputeCachedState();
     for (const listener of listeners) {
       listener(cachedState);
     }
-  };
+  }
 
   const machine: StateMachine<TState, TEvent> = {
     get state() {
@@ -114,39 +114,37 @@ export function createStateMachine<
         | Partial<Record<TEvent, TState>>
         | undefined;
       const target = on?.[event];
-      if (!target || target === currentState) return; // no change
-
-      // run cleanup for current state if exists
-      if (cleanup) {
-        try {
-          cleanup();
-        } finally {
-          cleanup = undefined;
-        }
+      if (!target || target === currentState) {
+        // no change
+        return;
       }
 
-      // invalidate previous run's send and prepare a new epoch for the new state
-      epoch++;
+      try {
+        cleanup?.();
+      } finally {
+        cleanup = undefined;
+      }
+
+      // invalidate previous run's send by rotating the token and prepare for the new state
+      token = Symbol("smux_token");
       currentState = target;
       runEnterEffect();
       notify();
     },
     stop() {
-      if (cleanup) {
-        try {
-          cleanup();
-        } finally {
-          cleanup = undefined;
-        }
+      try {
+        cleanup?.();
+      } finally {
+        cleanup = undefined;
       }
       // invalidate any pending sends after stop
-      epoch++;
+      token = Symbol("smux_token");
     },
   };
 
   // initialize cached state and run enter effect for initial state
   recomputeCachedState();
-  epoch++;
+  token = Symbol("smux_token");
   runEnterEffect();
 
   return machine;
