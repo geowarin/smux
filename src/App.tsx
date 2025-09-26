@@ -34,13 +34,21 @@ export function App() {
           ))}
         </div>
       </div>
-      <MermaidDiagram smConfig={smConfig} />
+      <MermaidDiagram smConfig={smConfig} active={state.value as never} />
     </div>
   );
 }
 
-function MermaidDiagram({ smConfig }: { smConfig: MachineConfig }) {
-  const definition = buildMermaidDiagram(smConfig);
+function MermaidDiagram({
+  smConfig,
+  active,
+}: {
+  smConfig: MachineConfig;
+  active: string;
+}) {
+  const definition = buildMermaidDiagram(smConfig, {
+    highlight: active as never,
+  });
   const [error, setError] = useState<string | null>(null);
   const [svg, setSvg] = useState<string>("");
 

@@ -9,7 +9,7 @@ Repository tooling
 - Package manager: pnpm
 - Formatter: Prettier
 - Linter: Oxlint
-- Test runner: Vitest (with jsdom and coverage via @vitest/coverage-v8)
+- Test runner: Vitest (coverage via @vitest/coverage-v8)
 
 Mandatory workflow for every task
 

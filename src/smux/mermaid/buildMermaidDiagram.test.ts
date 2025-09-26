@@ -22,4 +22,12 @@ describe("buildMermaidStateDiagram", () => {
     expect(out).toContain("idle --> loading: FETCH");
     expect(out).toContain("loading --> success: RESOLVE");
   });
+
+  it("adds classDef and applies highlight when provided", () => {
+    const out = buildMermaidDiagram(cfg, { highlight: "loading" });
+    expect(out).toContain(
+      "classDef activeState fill:#ffd54f,stroke:#f57f17,color:#000,stroke-width:2px;",
+    );
+    expect(out).toContain("class loading activeState");
+  });
 });
