@@ -20,6 +20,16 @@ This project uses oxlint instead of ESLint for faster static analysis.
 
 If you need advanced configuration, see the oxlint docs: https://oxc-project.github.io/docs/guide/usage/oxlint.html
 
+## Testing with Vitest
+
+This project includes Vitest configured with a JSDOM environment.
+
+- Run all tests once: `pnpm run test`
+- Watch mode: `pnpm run test:watch`
+- Coverage: `pnpm run test:coverage`
+
+A minimal example test exists at `src/example.test.ts`. You can place tests alongside source files using `*.test.ts` or `*.test.tsx` patterns.
+
 ## Code formatting with Prettier + OXC plugin
 
 If you prefer using Prettier, this project also supports it via the OXC Prettier plugin.

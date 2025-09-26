@@ -9,7 +9,10 @@
     "lint": "oxlint .",
     "preview": "vite preview",
     "prettier:write": "prettier . --write",
-    "prettier:check": "prettier . --check"
+    "prettier:check": "prettier . --check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "react": "^19.1.1",
@@ -23,7 +26,10 @@
     "oxlint": "^0.9.6",
     "prettier": "^3.3.3",
     "typescript": "~5.8.3",
-    "vite": "npm:rolldown-vite@7.1.12"
+    "vite": "npm:rolldown-vite@7.1.12",
+    "vitest": "^2.1.4",
+    "@vitest/coverage-v8": "^2.1.4",
+    "jsdom": "^25.0.1"
   },
   "pnpm": {
     "overrides": {
