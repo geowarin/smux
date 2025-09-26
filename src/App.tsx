@@ -7,11 +7,29 @@ import {
   useStateMachine,
 } from "./smux";
 
-const smConfig: MachineConfig<"inactive" | "active", "TOGGLE"> = {
-  initial: "inactive",
+type AppState = "idle" | "loading" | "active";
+type AppEvent = "TOGGLE" | "READY";
+
+const smConfig: MachineConfig<AppState, AppEvent> = {
+  initial: "idle",
   states: {
-    inactive: { on: { TOGGLE: "active" } },
-    active: { on: { TOGGLE: "inactive" } },
+    idle: {
+      on: { TOGGLE: "loading" },
+    },
+    loading: {
+      on: { READY: "active" },
+      run: ({ send }) => {
+        const t = setTimeout(() => {
+          send("READY");
+        }, 800);
+        return () => {
+          clearTimeout(t);
+        };
+      },
+    },
+    active: {
+      on: { TOGGLE: "idle" },
+    },
   },
 };
 

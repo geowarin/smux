@@ -1,7 +1,11 @@
-export type StateConfig = {
+export interface RunContext<TEvent extends string = string> {
+  send: (event: TEvent) => void;
+}
+
+export type StateConfig<TEvent extends string = string> = {
   on?: Record<string, string>;
   /** Effect that runs on entering the state. If it returns a function, it will be called when exiting the state. */
-  run?: () => void | (() => void);
+  run?: (ctx: RunContext<TEvent>) => void | (() => void);
 };
 
 export type MachineConfig<
@@ -11,7 +15,7 @@ export type MachineConfig<
   initial: TState;
   states: Record<
     TState,
-    StateConfig & { on?: Partial<Record<TEvent, TState>> }
+    StateConfig<TEvent> & { on?: Partial<Record<TEvent, TState>> }
   >;
 };
 
@@ -65,9 +69,11 @@ export function createStateMachine<
   };
 
   const runEnterEffect = () => {
-    const effect = config.states[currentState]?.run;
+    const effect = config.states[currentState]?.run as
+      | ((ctx: RunContext<TEvent>) => void | (() => void))
+      | undefined;
     if (typeof effect === "function") {
-      const maybeCleanup = effect();
+      const maybeCleanup = effect({ send: machine.send });
       if (typeof maybeCleanup === "function") cleanup = maybeCleanup;
     }
   };

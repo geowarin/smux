@@ -136,3 +136,36 @@ describe("createStateMachine run effects", () => {
     expect(runIdle).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("run effect send support", () => {
+  it("provides send in run and allows async transition", () => {
+    vi.useFakeTimers();
+    const onLoadingRun = vi.fn(({ send }: { send: (e: Event) => void }) => {
+      setTimeout(() => send("RESOLVE"), 10);
+    });
+
+    const cfg: MachineConfig<State, Event> = {
+      initial: "idle",
+      states: {
+        idle: { on: { FETCH: "loading" } },
+        loading: { on: { RESOLVE: "success" }, run: onLoadingRun },
+        success: { on: {} },
+      },
+    };
+
+    const machine = createStateMachine<State, Event>(cfg);
+    const listener = vi.fn();
+    machine.subscribe(listener);
+
+    machine.send("FETCH");
+    expect(machine.state.value).toBe("loading");
+    expect(onLoadingRun).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(10);
+
+    expect(machine.state.value).toBe("success");
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+  });
+});
