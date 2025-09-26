@@ -1,11 +1,12 @@
 export interface RunContext<TEvent extends string = string> {
   send: (event: TEvent) => void;
+  payload?: unknown;
 }
 
 export type StateConfig<TEvent extends string = string> = {
   on?: Record<string, string>;
   /** Effect that runs on entering the state. If it returns a function, it will be called when exiting the state. */
-  run?: (ctx: RunContext<TEvent>) => void | (() => void);
+  run?: (ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>;
 };
 
 export type MachineConfig<
@@ -52,6 +53,7 @@ export function createStateMachine<
   let currentState = config.initial;
   let cleanup: (() => void) | undefined;
   let token: symbol = Symbol("smux_token");
+  let lastPayload: unknown | undefined;
 
   // subscribers to state changes
   const listeners = new Set<(state: MachineState<TState, TEvent>) => void>();
@@ -89,7 +91,7 @@ export function createStateMachine<
 
   function runEnterEffect() {
     const effect = config.states[currentState]?.run as
-      | ((ctx: RunContext<TEvent>) => void | (() => void))
+      | ((ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>)
       | undefined;
     if (typeof effect !== "function") {
       return;
@@ -101,9 +103,54 @@ export function createStateMachine<
       }
       machine.send(event);
     };
-    const maybeCleanup = effect({ send: guardedSend });
-    if (typeof maybeCleanup === "function") {
-      cleanup = maybeCleanup;
+    const maybeCleanupOrPromise = effect({
+      send: guardedSend,
+      payload: lastPayload,
+    });
+    // clear payload after delivering it to the effect of the entered state
+    lastPayload = undefined;
+    if (typeof maybeCleanupOrPromise === "function") {
+      cleanup = maybeCleanupOrPromise as () => void;
+      return;
+    }
+    // if it looks like a promise, wire SUCCESS/ERROR
+    const maybeThen = (maybeCleanupOrPromise as any)?.then;
+    if (maybeThen && typeof maybeThen === "function") {
+      // dev-time check for required transitions
+      const on = getCurrentOn() ?? ({} as Partial<Record<TEvent, string>>);
+      // if (process?.env?.NODE_ENV !== "production") {
+      const hasSuccess = Object.prototype.hasOwnProperty.call(on, "SUCCESS");
+      const hasError = Object.prototype.hasOwnProperty.call(on, "ERROR");
+      if (!hasSuccess || !hasError) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `[smux] State "${currentState}" returned a Promise from run() but is missing transitions for SUCCESS and/or ERROR.`,
+        );
+      }
+      // }
+      (maybeCleanupOrPromise as Promise<unknown>)
+        .then((value) => {
+          if (token !== myToken) {
+            return;
+          }
+          lastPayload = value;
+          try {
+            guardedSend("SUCCESS" as TEvent);
+          } finally {
+            lastPayload = undefined;
+          }
+        })
+        .catch((err) => {
+          if (token !== myToken) {
+            return;
+          }
+          lastPayload = err;
+          try {
+            guardedSend("ERROR" as TEvent);
+          } finally {
+            lastPayload = undefined;
+          }
+        });
     }
   }
 

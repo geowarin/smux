@@ -135,9 +135,7 @@ describe("createStateMachine run effects", () => {
     expect(cleanup).not.toHaveBeenCalled();
     expect(runIdle).toHaveBeenCalledTimes(1);
   });
-});
 
-describe("run effect send support", () => {
   it("provides send in run and allows async transition", () => {
     vi.useFakeTimers();
     const onLoadingRun = vi.fn(({ send }: { send: (e: Event) => void }) => {
@@ -168,9 +166,7 @@ describe("run effect send support", () => {
 
     vi.useRealTimers();
   });
-});
 
-describe("run effect send becomes inert after exit", () => {
   it("does not dispatch when called after transitioning away", () => {
     vi.useFakeTimers();
 
@@ -208,5 +204,113 @@ describe("run effect send becomes inert after exit", () => {
     expect(listener).toHaveBeenCalledTimes(1);
 
     vi.useRealTimers();
+  });
+});
+
+describe("promise run effects", () => {
+  it("resolves promise -> sends SUCCESS and passes payload to next run", async () => {
+    type S = "loading" | "success" | "error";
+    type E = "SUCCESS" | "ERROR";
+
+    const onSuccessRun = vi.fn();
+
+    const cfg: MachineConfig<S, E> = {
+      initial: "loading",
+      states: {
+        loading: {
+          on: { SUCCESS: "success", ERROR: "error" },
+          run: () => Promise.resolve("Payload"),
+        },
+        success: {
+          on: {},
+          run: ({ payload }) => {
+            onSuccessRun(payload);
+          },
+        },
+        error: { on: {} },
+      },
+    };
+
+    const machine = createStateMachine<S, E>(cfg);
+    expect(machine.state.value).toBe("loading");
+
+    await Promise.resolve();
+
+    expect(machine.state.value).toBe("success");
+    expect(onSuccessRun).toHaveBeenCalledTimes(1);
+    expect(onSuccessRun.mock.calls[0][0]).toBe("Payload");
+  });
+
+  it("rejects promise -> sends ERROR and passes error to next run", async () => {
+    type S = "loading" | "success" | "error";
+    type E = "SUCCESS" | "ERROR";
+
+    const onErrorRun = vi.fn();
+
+    const err = new Error("Boom");
+
+    const cfg: MachineConfig<S, E> = {
+      initial: "loading",
+      states: {
+        loading: {
+          on: { SUCCESS: "success", ERROR: "error" },
+          run: () => Promise.reject(err),
+        },
+        success: { on: {} },
+        error: {
+          on: {},
+          run: ({ payload }) => {
+            onErrorRun(payload);
+          },
+        },
+      },
+    };
+
+    const machine = createStateMachine<S, E>(cfg);
+    expect(machine.state.value).toBe("loading");
+
+    // allow promise microtasks to run
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(machine.state.value).toBe("error");
+    expect(onErrorRun).toHaveBeenCalledTimes(1);
+    expect(onErrorRun.mock.calls[0][0]).toBe(err);
+  });
+
+  it("ignores late resolve after leaving the state", async () => {
+    type S = "loading" | "idle" | "success";
+    type E = "SUCCESS" | "ERROR" | "CANCEL";
+
+    let resolvePromise: ((v: unknown) => void) | undefined;
+    const onSuccessRun = vi.fn();
+
+    const cfg: MachineConfig<S, E> = {
+      initial: "loading",
+      states: {
+        loading: {
+          on: { SUCCESS: "success", ERROR: "idle", CANCEL: "idle" },
+          run: () =>
+            new Promise((res) => {
+              resolvePromise = res;
+            }),
+        },
+        idle: { on: {} },
+        success: { on: {}, run: ({ payload }) => onSuccessRun(payload) },
+      },
+    };
+
+    const machine = createStateMachine<S, E>(cfg);
+    expect(machine.state.value).toBe("loading");
+
+    machine.send("CANCEL");
+    expect(machine.state.value).toBe("idle");
+
+    resolvePromise?.("Late");
+
+    await Promise.resolve();
+
+    expect(machine.state.value).toBe("idle");
+    expect(onSuccessRun).not.toHaveBeenCalled();
   });
 });

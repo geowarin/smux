@@ -7,34 +7,45 @@ import {
   useStateMachine,
 } from "./smux";
 
-type AppState = "idle" | "loading" | "active";
-type AppEvent = "TOGGLE" | "READY";
-
-const smConfig: MachineConfig<AppState, AppEvent> = {
-  initial: "idle",
-  states: {
-    idle: {
-      on: { TOGGLE: "loading" },
-    },
-    loading: {
-      on: { READY: "active" },
-      run: ({ send }) => {
-        const t = setTimeout(() => {
-          send("READY");
-        }, 800);
-        return () => {
-          clearTimeout(t);
-        };
-      },
-    },
-    active: {
-      on: { TOGGLE: "idle" },
-    },
-  },
-};
+type AppState = "idle" | "loading" | "success" | "error";
+type AppEvent = "FETCH" | "SUCCESS" | "ERROR" | "RETRY";
 
 export function App() {
-  const machine = useMemo(() => createStateMachine(smConfig), []);
+  const [latestPayload, setLatestPayload] = useState<unknown>(undefined);
+
+  const smConfig: MachineConfig<AppState, AppEvent> = useMemo(
+    () => ({
+      initial: "idle",
+      states: {
+        idle: {
+          on: { FETCH: "loading" },
+        },
+        loading: {
+          on: { SUCCESS: "success", ERROR: "error" },
+          // Returning a Promise triggers SUCCESS/ERROR automatically
+          run: () =>
+            fetch("https://jsonplaceholder.typicode.com/todos/1").then((r) =>
+              r.json(),
+            ),
+        },
+        success: {
+          on: { RETRY: "idle" },
+          run: ({ payload }) => {
+            setLatestPayload(payload);
+          },
+        },
+        error: {
+          on: { RETRY: "loading" },
+          run: ({ payload }) => {
+            setLatestPayload(payload);
+          },
+        },
+      },
+    }),
+    [],
+  );
+
+  const machine = useMemo(() => createStateMachine(smConfig), [smConfig]);
   const [state, send] = useStateMachine(machine);
 
   return (
@@ -50,6 +61,14 @@ export function App() {
               {evt}
             </button>
           ))}
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <div>Latest payload:</div>
+          <pre style={{ whiteSpace: "pre-wrap" }}>
+            {latestPayload === undefined
+              ? "(none yet)"
+              : JSON.stringify(latestPayload, null, 2)}
+          </pre>
         </div>
       </div>
       <MermaidDiagram smConfig={smConfig} active={state.value as never} />
