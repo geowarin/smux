@@ -19,3 +19,13 @@ This project uses oxlint instead of ESLint for faster static analysis.
 - By default, oxlint runs with its built-in recommended rules.
 
 If you need advanced configuration, see the oxlint docs: https://oxc-project.github.io/docs/guide/usage/oxlint.html
+
+## Code formatting with Prettier + OXC plugin
+
+If you prefer using Prettier, this project also supports it via the OXC Prettier plugin.
+
+- Format all files: `pnpm run prettier:write`
+- Check formatting only (CI-friendly): `pnpm run prettier:check`
+- Print formatted content to stdout: `pnpm run prettier`
+
+The Prettier configuration loads the OXC plugin from `.prettierrc.json`. You typically don't need any extra config; Prettier will use the plugin automatically when installed.
