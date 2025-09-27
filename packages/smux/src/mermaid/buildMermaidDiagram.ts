@@ -1,14 +1,11 @@
-import type { MachineConfig } from "../createStateMachine.ts";
+import type { MachineConfig } from "../createStateMachine.js";
 
 /**
  * Build a Mermaid state diagram definition from a MachineConfig.
  * Example output:
  * stateDiagram-v2\n[*] --> idle\nidle --> loading: FETCH\nloading --> success: RESOLVE
  */
-export function buildMermaidDiagram<
-  TState extends string,
-  TEvent extends string,
->(
+export function buildMermaidDiagram<TState extends string, TEvent extends string>(
   config: MachineConfig<TState, TEvent>,
   opts?: { highlight?: TState },
 ): string {
@@ -33,9 +30,7 @@ export function buildMermaidDiagram<
   }
 
   // Define highlight style and apply to the highlighted state if provided
-  lines.push(
-    "classDef activeState fill:#ffd54f,stroke:#f57f17,color:#000,stroke-width:2px;",
-  );
+  lines.push("classDef activeState fill:#ffd54f,stroke:#f57f17,color:#000,stroke-width:2px;");
   if (opts?.highlight != null) {
     lines.push(`class ${opts.highlight} activeState`);
   }

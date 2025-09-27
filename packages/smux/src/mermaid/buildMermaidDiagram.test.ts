@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { MachineConfig } from "../createStateMachine.ts";
-import { buildMermaidDiagram } from "./buildMermaidDiagram.ts";
+import type { MachineConfig } from "../createStateMachine.js";
+import { buildMermaidDiagram } from "./buildMermaidDiagram.js";
 
 type S = "idle" | "loading" | "success";
 type E = "FETCH" | "RESOLVE";
@@ -25,9 +25,7 @@ describe("buildMermaidStateDiagram", () => {
 
   it("adds classDef and applies highlight when provided", () => {
     const out = buildMermaidDiagram(cfg, { highlight: "loading" });
-    expect(out).toContain(
-      "classDef activeState fill:#ffd54f,stroke:#f57f17,color:#000,stroke-width:2px;",
-    );
+    expect(out).toContain("classDef activeState fill:#ffd54f,stroke:#f57f17,color:#000,stroke-width:2px;");
     expect(out).toContain("class loading activeState");
   });
 });

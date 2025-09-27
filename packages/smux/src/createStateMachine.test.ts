@@ -1,14 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { createStateMachine } from "./createStateMachine.ts";
-import type {
-  MachineConfig,
-  RunContext,
-  RunMeta,
-} from "./createStateMachine.ts";
-import { SmuxError } from "./error.ts";
+import { createStateMachine } from "./createStateMachine.js";
+import type { MachineConfig, RunContext, RunMeta } from "./createStateMachine.js";
+import { SmuxError } from "./error.js";
 
 function flushMicrotasks() {
-  return new Promise<void>((res) => setTimeout(res, 0));
+  return new Promise<void>(res => setTimeout(res, 0));
 }
 
 describe("createStateMachine – Initialization and state shape", () => {
@@ -318,7 +314,7 @@ describe("createStateMachine – Async enter effects (promise-like results)", ()
       states: {
         loading: {
           run: () =>
-            new Promise<number>((res) => {
+            new Promise<number>(res => {
               resolveFn = res;
             }),
           on: { SUCCESS: "done" },

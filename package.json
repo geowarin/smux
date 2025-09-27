@@ -9,9 +9,10 @@
     "build": "pnpm -r --parallel run build",
     "build:app": "pnpm --filter=react-app run build",
     "check": "pnpm -r --parallel run check",
-    "dev": "pnpm --filter=react-app run dev",
-    "test": " pnpm --filter=smux run test",
-    "test:coverage": " pnpm --filter=smux run test:coverage"
+    "predev": "pnpm -r --parallel run predev",
+    "dev": "pnpm -r --parallel run dev",
+    "test": "pnpm --filter=smux run test",
+    "test:coverage": "pnpm --filter=smux run test:coverage"
   },
   "keywords": [],
   "author": "",

@@ -1,4 +1,4 @@
-export { createStateMachine } from "./createStateMachine.ts";
+export { createStateMachine } from "./createStateMachine.js";
 export type {
   StateConfig,
   MachineConfig,
@@ -6,6 +6,6 @@ export type {
   StateMachine,
   RunContext,
   RunMeta,
-} from "./createStateMachine.ts";
-export { buildMermaidDiagram } from "./mermaid/buildMermaidDiagram.ts";
-export type { SmuxError, ErrorMeta } from "./error.ts";
+} from "./createStateMachine.js";
+export { buildMermaidDiagram } from "./mermaid/buildMermaidDiagram.js";
+export type { SmuxError, ErrorMeta } from "./error.js";
