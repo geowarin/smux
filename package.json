@@ -8,7 +8,7 @@
     "build": "vite build",
     "check": "pnpm format && pnpm run typecheck && pnpm run lint",
     "lint": "oxlint .",
-    "typecheck": "tsgo --project tsconfig.json --noEmit",
+    "typecheck": "tsgo -b --noEmit",
     "preview": "vite preview",
     "format": "prettier . --write src/",
     "test": "vitest run",
@@ -29,7 +29,6 @@
     "@vitest/coverage-v8": "^3.2.4",
     "oxlint": "^1.18.0",
     "prettier": "^3.3.3",
-    "typescript": "~5.9.2",
     "vite": "npm:rolldown-vite@7.1.12",
     "vitest": "^3.2.4"
   },

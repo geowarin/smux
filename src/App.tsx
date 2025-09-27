@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import mermaid from "mermaid";
 import type { MachineConfig } from "./smux/createStateMachine.ts";
 import { buildMermaidDiagram, createStateMachine, useStateMachine } from "./smux";
@@ -32,7 +32,7 @@ const smConfig: MachineConfig<AppState, AppEvent> = {
   },
 };
 
-export function App() {
+export function App(): ReactNode {
   const machine = useMemo(() => createStateMachine(smConfig), [smConfig]);
   const [state, send] = useStateMachine(machine);
 
@@ -62,7 +62,7 @@ export function App() {
   );
 }
 
-function MermaidDiagram({ smConfig, active }: { smConfig: MachineConfig; active: string }) {
+function MermaidDiagram({ smConfig, active }: { smConfig: MachineConfig<AppState, AppEvent>; active: AppState }) {
   const definition = buildMermaidDiagram(smConfig, {
     highlight: active as never,
   });
