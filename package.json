@@ -1,37 +1,22 @@
 {
-  "name": "smux",
+  "name": "smux-monorepo",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "check": "pnpm format && pnpm run typecheck && pnpm run lint",
-    "lint": "oxlint .",
-    "typecheck": "tsgo -b --noEmit",
-    "preview": "vite preview",
-    "format": "prettier . --write src/",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "build": "pnpm -r --parallel run build",
+    "build:app": "pnpm --filter=react-app run build",
+    "check": "pnpm -r --parallel run check",
+    "dev": "pnpm --filter=react-app run dev",
+    "test": " pnpm --filter=smux run test",
+    "test:coverage": " pnpm --filter=smux run test:coverage"
   },
-  "dependencies": {
-    "mermaid": "^11.12.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
-  },
-  "devDependencies": {
-    "@prettier/plugin-oxc": "^0.0.4",
-    "@types/react": "^19.1.13",
-    "@types/react-dom": "^19.1.9",
-    "@typescript/native-preview": "7.0.0-dev.20250926.1",
-    "@vitejs/plugin-react": "^5.0.3",
-    "@vitest/coverage-v8": "^3.2.4",
-    "oxlint": "^1.18.0",
-    "prettier": "^3.3.3",
-    "vite": "npm:rolldown-vite@7.1.12",
-    "vitest": "^3.2.4"
-  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.17.1",
   "pnpm": {
     "overrides": {
       "vite": "npm:rolldown-vite@7.1.12"

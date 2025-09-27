@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import type { MachineState, StateMachine } from "../createStateMachine.ts";
+import type { MachineState, StateMachine } from "smux";
 
 export function useStateMachine<TState extends string, TEvent extends string>(
   machine: StateMachine<TState, TEvent>,

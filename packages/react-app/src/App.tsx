@@ -1,7 +1,8 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import mermaid from "mermaid";
-import type { MachineConfig } from "./smux/createStateMachine.ts";
-import { buildMermaidDiagram, createStateMachine, useStateMachine } from "./smux";
+import type { MachineConfig } from "smux";
+import { buildMermaidDiagram, createStateMachine } from "smux";
+import { useStateMachine } from "./smux/react/useStateMachine.ts";
 
 type AppState = "idle" | "loading" | "success" | "error";
 type AppEvent = "FETCH" | "SUCCESS" | "ERROR" | "RETRY";

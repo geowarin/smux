@@ -39,12 +39,12 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build
-        run: pnpm build
+        run: pnpm build:app
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./packages/react-app/dist
 
   deploy:
     runs-on: ubuntu-latest

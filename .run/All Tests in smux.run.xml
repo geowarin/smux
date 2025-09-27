@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="All Tests in smux" type="JavaScriptTestRunnerVitest" nameIsGenerated="true">
+    <node-interpreter value="project" />
+    <vitest-package value="$PROJECT_DIR$/packages/smux/node_modules/vitest" />
+    <working-dir value="$PROJECT_DIR$/packages/smux" />
+    <vitest-options value="--watch" />
+    <envs />
+    <scope-kind value="ALL" />
+    <method v="2" />
+  </configuration>
+</component>
