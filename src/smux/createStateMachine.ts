@@ -1,20 +1,27 @@
 import { isFunction, isPromiseLike } from "./utils.ts";
 import { SmuxError } from "./error.ts";
 
-export interface RunContext<TEvent extends string = string> {
-  send: (event: TEvent, payload?: unknown) => void;
-  payload?: unknown;
+export interface RunMeta<TState extends string = string, TEvent extends string = string> {
+  to: TState;
+  from?: TState;
+  event?: TEvent;
 }
 
-export type StateConfig<TEvent extends string = string> = {
+export interface RunContext<TState extends string = string, TEvent extends string = string> {
+  send: (event: TEvent, payload?: unknown) => void;
+  payload?: unknown;
+  meta?: RunMeta<TState, TEvent>;
+}
+
+export type StateConfig<TState extends string = string, TEvent extends string = string> = {
   on?: Record<string, string>;
   /** Effect that runs on entering the state. If it returns a function, it will be called when exiting the state. */
-  run?: (ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>;
+  run?: (ctx: RunContext<TState, TEvent>) => void | (() => void) | Promise<unknown>;
 };
 
 export type MachineConfig<TState extends string = string, TEvent extends string = string> = {
   initial: TState;
-  states: Record<TState, StateConfig<TEvent> & { on?: Partial<Record<TEvent, TState>> }>;
+  states: Record<TState, StateConfig<TState, TEvent> & { on?: Partial<Record<TEvent, TState>> }>;
 };
 
 export type MachineState<TState extends string = string, TEvent extends string = string> = {
@@ -55,11 +62,11 @@ export function createStateMachine<TState extends string, TEvent extends string>
     token = Symbol("smux_token");
   }
 
-  function safeCleanup(from?: string, event?: string, to?: string) {
+  function safeCleanup(meta?: RunMeta<TState, TEvent>) {
     try {
       cleanup?.();
     } catch (e) {
-      throw new SmuxError("cleanup threw", { phase: "cleanup", state: from ?? "", from, to, event }, { cause: e });
+      throw new SmuxError("cleanup threw", { phase: "cleanup", ...meta }, { cause: e });
     } finally {
       cleanup = undefined;
     }
@@ -73,7 +80,7 @@ export function createStateMachine<TState extends string, TEvent extends string>
     };
   }
 
-  function runEnterEffect(payload?: unknown, from?: string, event?: string) {
+  function runEnterEffect(meta?: RunMeta<TState, TEvent>, payload?: unknown) {
     const effect = config.states[currentState]?.run;
     if (!isFunction(effect)) {
       return;
@@ -87,7 +94,7 @@ export function createStateMachine<TState extends string, TEvent extends string>
     };
 
     try {
-      const result = effect({ send: guardedSend, payload });
+      const result = effect({ send: guardedSend, payload, meta });
 
       if (isFunction(result)) {
         cleanup = result;
@@ -104,7 +111,7 @@ export function createStateMachine<TState extends string, TEvent extends string>
       const beforeToken = token;
       guardedSend("ERROR" as TEvent, e);
       if (token === beforeToken) {
-        throw new SmuxError("run threw", { phase: "enter", state: currentState, from, event }, { cause: e });
+        throw new SmuxError("run threw", { phase: "enter", ...meta }, { cause: e });
       }
     }
   }
@@ -136,13 +143,13 @@ export function createStateMachine<TState extends string, TEvent extends string>
         return;
       }
 
-      safeCleanup(currentState, event, target);
+      const meta: RunMeta<TState, TEvent> = { from: currentState, event, to: target };
+      safeCleanup(meta);
 
       invalidateToken();
-      const from = currentState;
       currentState = target;
       recomputeCachedState(payload);
-      runEnterEffect(payload, from, event);
+      runEnterEffect(meta, payload);
       notify();
     },
     stop() {
@@ -154,9 +161,9 @@ export function createStateMachine<TState extends string, TEvent extends string>
   invalidateToken();
   recomputeCachedState();
   try {
-    runEnterEffect();
+    runEnterEffect({ to: currentState });
   } catch (e) {
-    throw new SmuxError("initial run threw", { phase: "init", state: currentState }, { cause: e });
+    throw new SmuxError("initial run threw", { phase: "init", from: currentState }, { cause: e });
   }
 
   return machine;

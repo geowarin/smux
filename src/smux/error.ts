@@ -1,6 +1,5 @@
 export interface ErrorMeta {
   phase: "init" | "enter" | "cleanup";
-  state: string;
   from?: string;
   to?: string;
   event?: string;

@@ -427,7 +427,7 @@ describe("user code throws", () => {
       const err = e as any;
       expect(err.message).toContain("phase");
       expect(err.message).toContain("init");
-      expect(err.meta).toMatchObject({ phase: "init", state: "idle" });
+      expect(err.meta).toMatchObject({ phase: "init", from: "idle" });
     }
   });
 
@@ -458,7 +458,7 @@ describe("user code throws", () => {
       expect(err.message).toContain("enter");
       expect(err.meta).toMatchObject({
         phase: "enter",
-        state: "loading",
+        to: "loading",
         from: "idle",
         event: "GO",
       });
@@ -495,7 +495,7 @@ describe("user code throws", () => {
       expect(err.message).toContain("phase");
       expect(err.meta).toMatchObject({
         phase: "cleanup",
-        state: "idle",
+        from: "idle",
         to: "loading",
         event: "GO",
       });
@@ -503,5 +503,101 @@ describe("user code throws", () => {
     }
     expect(m.state.value).toBe("idle");
     expect(listener).toHaveBeenCalledTimes(0);
+  });
+});
+
+describe("RunMeta in RunContext", () => {
+  it("provides meta for initial state's run with only to", () => {
+    type S = "idle" | "next";
+    type E = "GO";
+    const spy = vi.fn();
+    const cfg: MachineConfig<S, E> = {
+      initial: "idle",
+      states: {
+        idle: {
+          on: { GO: "next" },
+          run: ({ meta }) => spy(meta),
+        },
+        next: { on: {} },
+      },
+    };
+
+    createStateMachine(cfg);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const arg = spy.mock.calls[0][0] as any;
+    expect(arg).toMatchObject({ to: "idle" });
+    expect(arg.from).toBeUndefined();
+    expect(arg.event).toBeUndefined();
+  });
+
+  it("provides meta (from, event, to) on transition run", () => {
+    type S = "idle" | "loading";
+    type E = "FETCH";
+    const runLoading = vi.fn();
+    const cfg: MachineConfig<S, E> = {
+      initial: "idle",
+      states: {
+        idle: { on: { FETCH: "loading" } },
+        loading: { on: {}, run: ({ meta }) => runLoading(meta) },
+      },
+    };
+
+    const m = createStateMachine(cfg);
+    m.send("FETCH");
+
+    expect(runLoading).toHaveBeenCalledTimes(1);
+    expect(runLoading.mock.calls[0][0]).toMatchObject({ from: "idle", event: "FETCH", to: "loading" });
+  });
+
+  it("provides meta when auto-dispatching SUCCESS from resolved promise", async () => {
+    type S = "loading" | "success" | "error";
+    type E = "SUCCESS" | "ERROR";
+
+    const onSuccess = vi.fn();
+
+    const cfg: MachineConfig<S, E> = {
+      initial: "loading",
+      states: {
+        loading: { on: { SUCCESS: "success", ERROR: "error" }, run: () => Promise.resolve("p") },
+        success: { on: {}, run: ({ meta }) => onSuccess(meta) },
+        error: { on: {} },
+      },
+    };
+
+    const m = createStateMachine(cfg);
+    expect(m.state.value).toBe("loading");
+
+    await Promise.resolve();
+
+    expect(m.state.value).toBe("success");
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onSuccess.mock.calls[0][0]).toMatchObject({ from: "loading", event: "SUCCESS", to: "success" });
+  });
+
+  it("provides meta when auto-dispatching ERROR from rejected promise", async () => {
+    type S = "loading" | "success" | "error";
+    type E = "SUCCESS" | "ERROR";
+
+    const onError = vi.fn();
+
+    const cfg: MachineConfig<S, E> = {
+      initial: "loading",
+      states: {
+        loading: { on: { SUCCESS: "success", ERROR: "error" }, run: () => Promise.reject(new Error("x")) },
+        success: { on: {} },
+        error: { on: {}, run: ({ meta }) => onError(meta) },
+      },
+    };
+
+    const m = createStateMachine(cfg);
+    expect(m.state.value).toBe("loading");
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(m.state.value).toBe("error");
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toMatchObject({ from: "loading", event: "ERROR", to: "error" });
   });
 });
