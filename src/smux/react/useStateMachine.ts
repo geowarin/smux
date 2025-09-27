@@ -3,7 +3,7 @@ import type { MachineState, StateMachine } from "../createStateMachine.ts";
 
 export function useStateMachine<TState extends string, TEvent extends string>(
   machine: StateMachine<TState, TEvent>,
-): [MachineState<TState, TEvent>, (event: TEvent) => void] {
+): [MachineState<TState, TEvent>, (event: TEvent, payload?: unknown) => void] {
   const subscribe = (onStoreChange: () => void) => {
     return machine.subscribe(() => onStoreChange());
   };

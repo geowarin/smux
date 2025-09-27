@@ -1,7 +1,7 @@
 import { isFunction, isPromiseLike } from "./utils.ts";
 
 export interface RunContext<TEvent extends string = string> {
-  send: (event: TEvent) => void;
+  send: (event: TEvent, payload?: unknown) => void;
   payload?: unknown;
 }
 
@@ -28,6 +28,7 @@ export type MachineState<
 > = {
   value: TState;
   nextEvents: TEvent[];
+  payload: unknown;
 };
 
 export type StateMachine<
@@ -39,7 +40,7 @@ export type StateMachine<
   subscribe: (
     listener: (state: MachineState<TState, TEvent>) => void,
   ) => () => void;
-  send: (event: TEvent) => void;
+  send: (event: TEvent, payload?: unknown) => void;
   /** Stops the machine and runs any pending cleanup. */
   stop: () => void;
 };
@@ -55,7 +56,6 @@ export function createStateMachine<
   let currentState = config.initial;
   let cleanup: (() => void) | undefined;
   let token: symbol = Symbol("smux_token");
-  let lastPayload: unknown | undefined;
 
   const listeners = new Set<(state: MachineState<TState, TEvent>) => void>();
 
@@ -63,6 +63,7 @@ export function createStateMachine<
   let cachedState: MachineState<TState, TEvent> = {
     value: currentState,
     nextEvents: [],
+    payload: undefined,
   };
 
   function invalidateToken() {
@@ -77,53 +78,39 @@ export function createStateMachine<
     }
   }
 
-  function recomputeCachedState() {
+  function recomputeCachedState(payload?: unknown) {
     cachedState = {
       value: currentState,
       nextEvents: getNextEvents(),
+      payload,
     };
   }
 
-  function runEnterEffect() {
+  function runEnterEffect(payload?: unknown) {
     const effect = config.states[currentState]?.run;
     if (!isFunction(effect)) {
       return;
     }
 
     const myToken = token;
-    const guardedSend = (event: TEvent) => {
+    const guardedSend = (event: TEvent, payload?: unknown) => {
       if (token !== myToken) {
         return;
       }
-      machine.send(event);
+      machine.send(event, payload);
     };
 
-    const result = effect({ send: guardedSend, payload: lastPayload });
-
-    // clear payload after delivering it to the effect of the entered state
-    lastPayload = undefined;
+    const result = effect({ send: guardedSend, payload });
 
     if (isFunction(result)) {
-      cleanup = result as () => void;
+      cleanup = result;
       return;
     }
 
     if (isPromiseLike(result)) {
-      function dispatchWithPayload(event: TEvent, payload: unknown) {
-        if (token !== myToken) {
-          return;
-        }
-        lastPayload = payload;
-        try {
-          guardedSend(event);
-        } finally {
-          lastPayload = undefined;
-        }
-      }
-
       result
-        .then(value => dispatchWithPayload("SUCCESS" as TEvent, value))
-        .catch(err => dispatchWithPayload("ERROR" as TEvent, err))
+        .then(value => guardedSend("SUCCESS" as TEvent, value))
+        .catch(err => guardedSend("ERROR" as TEvent, err))
         .catch(() => {});
     }
   }
@@ -134,8 +121,6 @@ export function createStateMachine<
   }
 
   function notify() {
-    // ensure cached state matches current before notifying
-    recomputeCachedState();
     for (const listener of listeners) {
       listener(cachedState);
     }
@@ -151,7 +136,7 @@ export function createStateMachine<
         listeners.delete(listener);
       };
     },
-    send(event: TEvent) {
+    send(event: TEvent, payload?: unknown) {
       const target = config.states[currentState]?.on?.[event];
       if (!target || target === currentState) {
         return;
@@ -161,7 +146,8 @@ export function createStateMachine<
 
       invalidateToken();
       currentState = target;
-      runEnterEffect();
+      recomputeCachedState(payload);
+      runEnterEffect(payload);
       notify();
     },
     stop() {
@@ -170,8 +156,8 @@ export function createStateMachine<
     },
   };
 
-  recomputeCachedState();
   invalidateToken();
+  recomputeCachedState();
   runEnterEffect();
 
   return machine;

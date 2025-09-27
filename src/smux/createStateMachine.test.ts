@@ -314,3 +314,146 @@ describe("promise run effects", () => {
     expect(onSuccessRun).not.toHaveBeenCalled();
   });
 });
+
+describe("payload extensions", () => {
+  it("sets payload on explicit send and delivers to next run", () => {
+    type S = "a" | "b";
+    type E = "GO";
+    const onB = vi.fn();
+    const cfg: MachineConfig<S, E> = {
+      initial: "a",
+      states: {
+        a: { on: { GO: "b" } },
+        b: { on: {}, run: ({ payload }) => onB(payload) },
+      },
+    };
+    const m = createStateMachine(cfg);
+    m.send("GO", { x: 1 });
+    expect(m.state.value).toBe("b");
+    expect(m.state.payload).toEqual({ x: 1 });
+    expect(onB).toHaveBeenCalledWith({ x: 1 });
+  });
+
+  it("self-transition/unhandled does not change payload", () => {
+    type S = "a";
+    type E = "STAY" | "NOOP";
+    const cfg: MachineConfig<S, E> = {
+      initial: "a",
+      states: { a: { on: { STAY: "a" } } },
+    };
+    const m = createStateMachine(cfg);
+    m.send("STAY", { p: 1 });
+    expect(m.state.value).toBe("a");
+    expect(m.state.payload).toBeUndefined();
+    m.send("NOOP" as E, { p: 2 });
+    expect(m.state.payload).toBeUndefined();
+  });
+
+  it("promise resolve undefined -> payload becomes undefined", async () => {
+    type S = "loading" | "success" | "error";
+    type E = "SUCCESS" | "ERROR";
+    const onSuccess = vi.fn();
+    const cfg: MachineConfig<S, E> = {
+      initial: "loading",
+      states: {
+        loading: {
+          on: { SUCCESS: "success", ERROR: "error" },
+          run: () => Promise.resolve(undefined),
+        },
+        success: { on: {}, run: ({ payload }) => onSuccess(payload) },
+        error: { on: {} },
+      },
+    };
+    const m = createStateMachine(cfg);
+    await Promise.resolve();
+    expect(m.state.value).toBe("success");
+    expect(m.state.payload).toBeUndefined();
+    expect(onSuccess).toHaveBeenCalledWith(undefined);
+  });
+
+  it("allows send(event, payload) from run", () => {
+    type S = "a" | "b";
+    type E = "GO";
+    const onB = vi.fn();
+    const cfg: MachineConfig<S, E> = {
+      initial: "a",
+      states: {
+        a: { on: { GO: "b" }, run: ({ send }) => send("GO", 42) },
+        b: { on: {}, run: ({ payload }) => onB(payload) },
+      },
+    };
+    const m = createStateMachine(cfg);
+    expect(m.state.value).toBe("b");
+    expect(m.state.payload).toBe(42);
+    expect(onB).toHaveBeenCalledWith(42);
+  });
+
+  it("stop() prevents late promise from dispatching", async () => {
+    type S = "loading" | "success" | "error";
+    type E = "SUCCESS" | "ERROR";
+    let resolve!: (v: unknown) => void;
+    const cfg: MachineConfig<S, E> = {
+      initial: "loading",
+      states: {
+        loading: {
+          on: { SUCCESS: "success", ERROR: "error" },
+          run: () => new Promise(res => (resolve = res)),
+        },
+        success: { on: {} },
+        error: { on: {} },
+      },
+    };
+    const m = createStateMachine(cfg);
+    m.stop();
+    resolve(1);
+    await Promise.resolve();
+    expect(m.state.value).toBe("loading");
+  });
+
+  it("notifies subscribers with updated payload", () => {
+    type S = "a" | "b";
+    type E = "GO";
+    const cfg: MachineConfig<S, E> = {
+      initial: "a",
+      states: { a: { on: { GO: "b" } }, b: { on: {} } },
+    };
+    const m = createStateMachine(cfg);
+    const listener = vi.fn();
+    m.subscribe(listener);
+    m.send("GO", { n: 5 });
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0].payload).toEqual({ n: 5 });
+  });
+
+  it("sync send from run transitions with final payload", () => {
+    type S = "a" | "b" | "c";
+    type E = "GO" | "NEXT";
+    const onC = vi.fn();
+    const cfg: MachineConfig<S, E> = {
+      initial: "a",
+      states: {
+        a: { on: { GO: "b" } },
+        b: { on: { NEXT: "c" }, run: ({ send }) => send("NEXT", "p2") },
+        c: { on: {}, run: ({ payload }) => onC(payload) },
+      },
+    };
+    const m = createStateMachine(cfg);
+    m.send("GO", "p1");
+    expect(m.state.value).toBe("c");
+    expect(m.state.payload).toBe("p2");
+    expect(onC).toHaveBeenCalledWith("p2");
+  });
+
+  it("preserves payload object identity", () => {
+    type S = "a" | "b";
+    type E = "GO";
+    const obj = { a: 1 } as { a: number };
+    const cfg: MachineConfig<S, E> = {
+      initial: "a",
+      states: { a: { on: { GO: "b" } }, b: { on: {} } },
+    };
+    const m = createStateMachine(cfg);
+    m.send("GO", obj);
+    expect(m.state.payload).toBe(obj);
+  });
+});

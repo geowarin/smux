@@ -10,41 +10,36 @@ import {
 type AppState = "idle" | "loading" | "success" | "error";
 type AppEvent = "FETCH" | "SUCCESS" | "ERROR" | "RETRY";
 
-export function App() {
-  const [latestPayload, setLatestPayload] = useState<unknown>(undefined);
-
-  const smConfig: MachineConfig<AppState, AppEvent> = useMemo(
-    () => ({
-      initial: "idle",
-      states: {
-        idle: {
-          on: { FETCH: "loading" },
-        },
-        loading: {
-          on: { SUCCESS: "success", ERROR: "error" },
-          // Returning a Promise triggers SUCCESS/ERROR automatically
-          run: () =>
-            fetch("https://jsonplaceholder.typicode.com/todos/1").then(r =>
-              r.json(),
-            ),
-        },
-        success: {
-          on: { RETRY: "idle" },
-          run: ({ payload }) => {
-            setLatestPayload(payload);
-          },
-        },
-        error: {
-          on: { RETRY: "loading" },
-          run: ({ payload }) => {
-            setLatestPayload(payload);
-          },
-        },
+const smConfig: MachineConfig<AppState, AppEvent> = {
+  initial: "idle",
+  states: {
+    idle: {
+      on: { FETCH: "loading" },
+    },
+    loading: {
+      on: { SUCCESS: "success", ERROR: "error" },
+      // Returning a Promise triggers SUCCESS/ERROR automatically
+      run: () =>
+        fetch("https://jsonplaceholder.typicode.com/todos/1").then(r =>
+          r.json(),
+        ),
+    },
+    success: {
+      on: { RETRY: "idle" },
+      run: ({ payload }) => {
+        console.log(payload);
       },
-    }),
-    [],
-  );
+    },
+    error: {
+      on: { RETRY: "loading" },
+      run: ({ payload }) => {
+        console.error(payload);
+      },
+    },
+  },
+};
 
+export function App() {
   const machine = useMemo(() => createStateMachine(smConfig), [smConfig]);
   const [state, send] = useStateMachine(machine);
 
@@ -65,9 +60,9 @@ export function App() {
         <div style={{ marginTop: 12 }}>
           <div>Latest payload:</div>
           <pre style={{ whiteSpace: "pre-wrap" }}>
-            {latestPayload === undefined
+            {state.payload === undefined
               ? "(none yet)"
-              : JSON.stringify(latestPayload, null, 2)}
+              : JSON.stringify(state.payload, null, 2)}
           </pre>
         </div>
       </div>
