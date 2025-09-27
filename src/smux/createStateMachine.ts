@@ -1,3 +1,5 @@
+import { isFunction, isPromiseLike } from "./utils.ts";
+
 export interface RunContext<TEvent extends string = string> {
   send: (event: TEvent) => void;
   payload?: unknown;
@@ -55,7 +57,6 @@ export function createStateMachine<
   let token: symbol = Symbol("smux_token");
   let lastPayload: unknown | undefined;
 
-  // subscribers to state changes
   const listeners = new Set<(state: MachineState<TState, TEvent>) => void>();
 
   // cached state object to maintain referential stability when not changing
@@ -76,12 +77,6 @@ export function createStateMachine<
     }
   }
 
-  function getCurrentOn(): Partial<Record<TEvent, TState>> | undefined {
-    return config.states[currentState]?.on as
-      | Partial<Record<TEvent, TState>>
-      | undefined;
-  }
-
   function recomputeCachedState() {
     cachedState = {
       value: currentState,
@@ -89,43 +84,8 @@ export function createStateMachine<
     };
   }
 
-  function isFunction(
-    value: unknown,
-  ): value is (...args: unknown[]) => unknown {
-    return typeof value === "function";
-  }
-  function isPromiseLike(value: unknown): value is Promise<unknown> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const then = (value as any)?.then;
-    return typeof then === "function";
-  }
-  function getCurrentOnOrEmpty(): Partial<Record<TEvent, string>> {
-    return (getCurrentOn() ??
-      ({} as Partial<Record<TEvent, string>>)) as Partial<
-      Record<TEvent, string>
-    >;
-  }
-  function dispatchWithPayload(
-    sendFn: (event: TEvent) => void,
-    myToken: symbol,
-    event: TEvent,
-    payload: unknown,
-  ) {
-    if (token !== myToken) {
-      return;
-    }
-    lastPayload = payload;
-    try {
-      sendFn(event);
-    } finally {
-      lastPayload = undefined;
-    }
-  }
-
   function runEnterEffect() {
-    const effect = config.states[currentState]?.run as
-      | ((ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>)
-      | undefined;
+    const effect = config.states[currentState]?.run;
     if (!isFunction(effect)) {
       return;
     }
@@ -149,29 +109,27 @@ export function createStateMachine<
     }
 
     if (isPromiseLike(result)) {
-      const on = getCurrentOnOrEmpty();
-      const hasSuccess = Object.prototype.hasOwnProperty.call(on, "SUCCESS");
-      const hasError = Object.prototype.hasOwnProperty.call(on, "ERROR");
-      if (!hasSuccess || !hasError) {
-        // eslint-disable-next-line no-console
-        console.error(
-          `[smux] State "${currentState}" returned a Promise from run() but is missing transitions for SUCCESS and/or ERROR.`,
-        );
+      function dispatchWithPayload(event: TEvent, payload: unknown) {
+        if (token !== myToken) {
+          return;
+        }
+        lastPayload = payload;
+        try {
+          guardedSend(event);
+        } finally {
+          lastPayload = undefined;
+        }
       }
 
-      (result as Promise<unknown>)
-        .then((value) =>
-          dispatchWithPayload(guardedSend, myToken, "SUCCESS" as TEvent, value),
-        )
-        .catch((err) =>
-          dispatchWithPayload(guardedSend, myToken, "ERROR" as TEvent, err),
-        )
+      result
+        .then(value => dispatchWithPayload("SUCCESS" as TEvent, value))
+        .catch(err => dispatchWithPayload("ERROR" as TEvent, err))
         .catch(() => {});
     }
   }
 
   function getNextEvents(): TEvent[] {
-    const on = getCurrentOn() ?? {};
+    const on = config.states[currentState]?.on ?? {};
     return Object.keys(on) as TEvent[];
   }
 
@@ -194,15 +152,13 @@ export function createStateMachine<
       };
     },
     send(event: TEvent) {
-      const target = getCurrentOn()?.[event];
+      const target = config.states[currentState]?.on?.[event];
       if (!target || target === currentState) {
-        // no change
         return;
       }
 
       safeCleanup();
 
-      // invalidate previous run's send by rotating the token and prepare for the new state
       invalidateToken();
       currentState = target;
       runEnterEffect();
@@ -210,12 +166,10 @@ export function createStateMachine<
     },
     stop() {
       safeCleanup();
-      // invalidate any pending sends after stop
       invalidateToken();
     },
   };
 
-  // initialize cached state and run enter effect for initial state
   recomputeCachedState();
   invalidateToken();
   runEnterEffect();

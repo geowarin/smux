@@ -291,7 +291,7 @@ describe("promise run effects", () => {
         loading: {
           on: { SUCCESS: "success", ERROR: "idle", CANCEL: "idle" },
           run: () =>
-            new Promise((res) => {
+            new Promise(res => {
               resolvePromise = res;
             }),
         },

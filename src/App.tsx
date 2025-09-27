@@ -24,7 +24,7 @@ export function App() {
           on: { SUCCESS: "success", ERROR: "error" },
           // Returning a Promise triggers SUCCESS/ERROR automatically
           run: () =>
-            fetch("https://jsonplaceholder.typicode.com/todos/1").then((r) =>
+            fetch("https://jsonplaceholder.typicode.com/todos/1").then(r =>
               r.json(),
             ),
         },
@@ -56,7 +56,7 @@ export function App() {
           Current state: <strong>{state.value}</strong>
         </div>
         <div className="button-row">
-          {state.nextEvents.map((evt) => (
+          {state.nextEvents.map(evt => (
             <button key={evt} onClick={() => send(evt as never)}>
               {evt}
             </button>
@@ -105,7 +105,7 @@ function MermaidDiagram({
       .then(({ svg }) => {
         setSvg(svg);
       })
-      .catch((e) => {
+      .catch(e => {
         setError((e as Error).message);
       });
   }, [definition]);
