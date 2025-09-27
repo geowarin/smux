@@ -1,4 +1,5 @@
 import { isFunction, isPromiseLike } from "./utils.ts";
+import { SmuxError } from "./error.ts";
 
 export interface RunContext<TEvent extends string = string> {
   send: (event: TEvent, payload?: unknown) => void;
@@ -11,48 +12,32 @@ export type StateConfig<TEvent extends string = string> = {
   run?: (ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>;
 };
 
-export type MachineConfig<
-  TState extends string = string,
-  TEvent extends string = string,
-> = {
+export type MachineConfig<TState extends string = string, TEvent extends string = string> = {
   initial: TState;
-  states: Record<
-    TState,
-    StateConfig<TEvent> & { on?: Partial<Record<TEvent, TState>> }
-  >;
+  states: Record<TState, StateConfig<TEvent> & { on?: Partial<Record<TEvent, TState>> }>;
 };
 
-export type MachineState<
-  TState extends string = string,
-  TEvent extends string = string,
-> = {
+export type MachineState<TState extends string = string, TEvent extends string = string> = {
   value: TState;
   nextEvents: TEvent[];
   payload: unknown;
 };
 
-export type StateMachine<
-  TState extends string = string,
-  TEvent extends string = string,
-> = {
+export type StateMachine<TState extends string = string, TEvent extends string = string> = {
   state: MachineState<TState, TEvent>;
   /** Subscribe to state changes. Returns an unsubscribe function. */
-  subscribe: (
-    listener: (state: MachineState<TState, TEvent>) => void,
-  ) => () => void;
+  subscribe: (listener: (state: MachineState<TState, TEvent>) => void) => () => void;
   send: (event: TEvent, payload?: unknown) => void;
   /** Stops the machine and runs any pending cleanup. */
   stop: () => void;
 };
 
 /**
- * A tiny finite state machine with enter effects and cleanup on exit.
- * Designed only to support the example use case.
+ * A tiny finite state machine.
  */
-export function createStateMachine<
-  TState extends string,
-  TEvent extends string,
->(config: MachineConfig<TState, TEvent>): StateMachine<TState, TEvent> {
+export function createStateMachine<TState extends string, TEvent extends string>(
+  config: MachineConfig<TState, TEvent>,
+): StateMachine<TState, TEvent> {
   let currentState = config.initial;
   let cleanup: (() => void) | undefined;
   let token: symbol = Symbol("smux_token");
@@ -70,9 +55,11 @@ export function createStateMachine<
     token = Symbol("smux_token");
   }
 
-  function safeCleanup() {
+  function safeCleanup(from?: string, event?: string, to?: string) {
     try {
       cleanup?.();
+    } catch (e) {
+      throw new SmuxError("cleanup threw", { phase: "cleanup", state: from ?? "", from, to, event }, { cause: e });
     } finally {
       cleanup = undefined;
     }
@@ -86,7 +73,7 @@ export function createStateMachine<
     };
   }
 
-  function runEnterEffect(payload?: unknown) {
+  function runEnterEffect(payload?: unknown, from?: string, event?: string) {
     const effect = config.states[currentState]?.run;
     if (!isFunction(effect)) {
       return;
@@ -94,24 +81,35 @@ export function createStateMachine<
 
     const myToken = token;
     const guardedSend = (event: TEvent, payload?: unknown) => {
-      if (token !== myToken) {
-        return;
+      if (token === myToken) {
+        machine.send(event, payload);
       }
-      machine.send(event, payload);
     };
 
-    const result = effect({ send: guardedSend, payload });
+    try {
+      const result = effect({ send: guardedSend, payload });
 
-    if (isFunction(result)) {
-      cleanup = result;
-      return;
-    }
+      if (isFunction(result)) {
+        cleanup = result;
+        return;
+      }
 
-    if (isPromiseLike(result)) {
-      result
-        .then(value => guardedSend("SUCCESS" as TEvent, value))
-        .catch(err => guardedSend("ERROR" as TEvent, err))
-        .catch(() => {});
+      if (isPromiseLike(result)) {
+        result
+          .then(value => guardedSend("SUCCESS" as TEvent, value))
+          .catch(err => guardedSend("ERROR" as TEvent, err))
+          .catch(() => {});
+      }
+    } catch (e) {
+      const beforeToken = token;
+      guardedSend("ERROR" as TEvent, e);
+      if (token === beforeToken) {
+        throw new SmuxError(
+          "run threw",
+          { phase: "enter", state: currentState, from, to: currentState, event },
+          { cause: e },
+        );
+      }
     }
   }
 
@@ -142,12 +140,13 @@ export function createStateMachine<
         return;
       }
 
-      safeCleanup();
+      safeCleanup(currentState, event, target);
 
       invalidateToken();
+      const from = currentState;
       currentState = target;
       recomputeCachedState(payload);
-      runEnterEffect(payload);
+      runEnterEffect(payload, from, event);
       notify();
     },
     stop() {
@@ -158,7 +157,11 @@ export function createStateMachine<
 
   invalidateToken();
   recomputeCachedState();
-  runEnterEffect();
+  try {
+    runEnterEffect();
+  } catch (e) {
+    throw new SmuxError("initial run threw", { phase: "init", state: currentState }, { cause: e });
+  }
 
   return machine;
 }

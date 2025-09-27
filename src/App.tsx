@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import mermaid from "mermaid";
 import type { MachineConfig } from "./smux/createStateMachine.ts";
-import {
-  buildMermaidDiagram,
-  createStateMachine,
-  useStateMachine,
-} from "./smux";
+import { buildMermaidDiagram, createStateMachine, useStateMachine } from "./smux";
 
 type AppState = "idle" | "loading" | "success" | "error";
 type AppEvent = "FETCH" | "SUCCESS" | "ERROR" | "RETRY";
@@ -19,10 +15,7 @@ const smConfig: MachineConfig<AppState, AppEvent> = {
     loading: {
       on: { SUCCESS: "success", ERROR: "error" },
       // Returning a Promise triggers SUCCESS/ERROR automatically
-      run: () =>
-        fetch("https://jsonplaceholder.typicode.com/todos/1").then(r =>
-          r.json(),
-        ),
+      run: () => fetch("https://jsonplaceholder.typicode.com/todos/1").then(r => r.json()),
     },
     success: {
       on: { RETRY: "idle" },
@@ -60,9 +53,7 @@ export function App() {
         <div style={{ marginTop: 12 }}>
           <div>Latest payload:</div>
           <pre style={{ whiteSpace: "pre-wrap" }}>
-            {state.payload === undefined
-              ? "(none yet)"
-              : JSON.stringify(state.payload, null, 2)}
+            {state.payload === undefined ? "(none yet)" : JSON.stringify(state.payload, null, 2)}
           </pre>
         </div>
       </div>
@@ -71,13 +62,7 @@ export function App() {
   );
 }
 
-function MermaidDiagram({
-  smConfig,
-  active,
-}: {
-  smConfig: MachineConfig;
-  active: string;
-}) {
+function MermaidDiagram({ smConfig, active }: { smConfig: MachineConfig; active: string }) {
   const definition = buildMermaidDiagram(smConfig, {
     highlight: active as never,
   });

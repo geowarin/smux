@@ -10,7 +10,7 @@
     "lint": "oxlint .",
     "typecheck": "tsgo --project tsconfig.json --noEmit",
     "preview": "vite preview",
-    "format": "prettier . --write",
+    "format": "prettier . --write src/",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

@@ -457,3 +457,105 @@ describe("payload extensions", () => {
     expect(m.state.payload).toBe(obj);
   });
 });
+
+describe("user code throws", () => {
+  it("throws when initial state's run throws synchronously with context", () => {
+    type S = "idle" | "loading";
+    type E = "GO";
+    const cfg: MachineConfig<S, E> = {
+      initial: "idle",
+      states: {
+        idle: {
+          on: { GO: "loading" },
+          run: () => {
+            throw new Error("boom");
+          },
+        },
+        loading: { on: {} },
+      },
+    };
+    try {
+      createStateMachine(cfg);
+      expect.unreachable("should have thrown");
+    } catch (e) {
+      const err = e as any;
+      expect(err.message).toContain("phase");
+      expect(err.message).toContain("init");
+      expect(err.meta).toMatchObject({ phase: "init", state: "idle" });
+    }
+  });
+
+  it("run throws on transition: attempts ERROR auto-dispatch; if unhandled, throws with context", () => {
+    type S = "idle" | "loading";
+    type E = "GO";
+    const cfg: MachineConfig<S, E> = {
+      initial: "idle",
+      states: {
+        idle: { on: { GO: "loading" } },
+        loading: {
+          on: {},
+          run: () => {
+            throw new Error("run-err");
+          },
+        },
+      },
+    };
+    const m = createStateMachine(cfg);
+    const listener = vi.fn();
+    m.subscribe(listener);
+    try {
+      m.send("GO");
+      expect.unreachable("should have thrown");
+    } catch (e) {
+      const err = e as any;
+      expect(err.message).toContain("phase");
+      expect(err.message).toContain("enter");
+      expect(err.meta).toMatchObject({
+        phase: "enter",
+        state: "loading",
+        from: "idle",
+        event: "GO",
+      });
+    }
+    expect(m.state.value).toBe("loading");
+    expect(listener).toHaveBeenCalledTimes(0);
+  });
+
+  it("cleanup throws on transition: transition is aborted and no notify occurs, throws with context", () => {
+    type S = "idle" | "loading";
+    type E = "GO";
+    const cleanupErr = new Error("cleanup-err");
+    const cfg: MachineConfig<S, E> = {
+      initial: "idle",
+      states: {
+        idle: {
+          on: { GO: "loading" },
+          run: () => () => {
+            throw cleanupErr;
+          },
+        },
+        loading: { on: {} },
+      },
+    };
+    const m = createStateMachine(cfg);
+    const listener = vi.fn();
+    m.subscribe(listener);
+    try {
+      m.send("GO");
+      expect.unreachable("should have thrown");
+    } catch (e) {
+      const err = e as any;
+      expect(err.message).toContain("cleanup");
+      expect(err.message).toContain("phase");
+      expect(err.meta).toMatchObject({
+        phase: "cleanup",
+        state: "idle",
+        to: "loading",
+        event: "GO",
+      });
+      // original error should be available as cause in modern runtimes
+    }
+    expect(m.state.value).toBe("idle");
+    expect(listener).toHaveBeenCalledTimes(0);
+  });
+});
