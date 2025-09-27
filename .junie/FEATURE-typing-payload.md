@@ -4,9 +4,9 @@ Introduce an `Events` map for payload typing:
 
 ```ts
 interface Events {
-    SUCCESS: string;   // resolved payload
-    ERROR: Error;      // rejected payload (or unknown)
-    RESTART: undefined;
+  SUCCESS: string; // resolved payload
+  ERROR: Error; // rejected payload (or unknown)
+  RESTART: undefined;
 }
 ```
 

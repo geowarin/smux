@@ -93,15 +93,15 @@ Input (nested):
 
 ```ts
 interface StateConfigNested<TEvent extends string> {
-    on?: Partial<Record<TEvent, string>>;             // targets may be relative or absolute
-    run?: (ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>;
-    initial?: string;                                 // presence of `initial` implies substates
-    states?: Record<string, StateConfigNested<TEvent>>;// nested states
+  on?: Partial<Record<TEvent, string>>; // targets may be relative or absolute
+  run?: (ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>;
+  initial?: string; // presence of `initial` implies substates
+  states?: Record<string, StateConfigNested<TEvent>>; // nested states
 }
 
 interface MachineConfigNested<TState extends string, TEvent extends string> {
-    initial: TState;
-    states: Record<TState, StateConfigNested<TEvent>>;
+  initial: TState;
+  states: Record<TState, StateConfigNested<TEvent>>;
 }
 ```
 
@@ -111,13 +111,13 @@ Compiled (flat):
 type FlatState = `${string}.${string}` | string; // e.g. "start.idle"
 
 interface StateConfig<TEvent extends string> {
-    on?: Partial<Record<TEvent, FlatState>>;
-    run?: (ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>;
+  on?: Partial<Record<TEvent, FlatState>>;
+  run?: (ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>;
 }
 
 interface MachineConfig<TState extends FlatState, TEvent extends string> {
-    initial: TState;             // e.g. "start.idle" (the initial leaf)
-    states: Record<TState, StateConfig<TEvent>>;
+  initial: TState; // e.g. "start.idle" (the initial leaf)
+  states: Record<TState, StateConfig<TEvent>>;
 }
 ```
 
@@ -130,10 +130,10 @@ Algorithm sketch:
   calls them in reverse.
 - Build `on` for a leaf by layering ancestor `on` (outer to inner), then the leaf’s own `on`.
 - Normalize transition targets:
-    - Absolute: `start` or `start.idle`
-    - Relative: `^` (parent), `.` (self), `..child` (sibling via parent), or bare child name inside a composite. Convert
-      to absolute path.
-    - If target resolves to a composite state, rewrite to its initial leaf.
+  - Absolute: `start` or `start.idle`
+  - Relative: `^` (parent), `.` (self), `..child` (sibling via parent), or bare child name inside a composite. Convert
+    to absolute path.
+  - If target resolves to a composite state, rewrite to its initial leaf.
 
 This keeps the runtime unchanged, including `token`/reentrancy safeguards you already have.
 
@@ -143,21 +143,21 @@ This keeps the runtime unchanged, including `token`/reentrancy safeguards you al
 
 A few pragmatic options, in order of simplicity:
 
-1) Delimited strings with template-literal types (minimal changes)
+1. Delimited strings with template-literal types (minimal changes)
 
 - Use `.` as delimiter and outlaw `.` in state ids.
 - Types can compute leaf unions like `${Parent}.${Child}` recursively.
 - Pros: minimal runtime impact; easy to read; works with your existing `MachineConfig`.
 - Cons: complex TS types if you expose the nested config generically; can be iterated later.
 
-2) Structured target objects (more explicit, better types later)
+2. Structured target objects (more explicit, better types later)
 
 - `on: { FINISH: { path: ["start", "success"] } }`
 - Easier to do relative paths: `{ rel: "^" }`, `{ rel: "child", id: "loading" }`
 - Pros: no delimiter conflicts; great future-proofing.
 - Cons: Slightly more verbose; you still flatten to string keys internally.
 
-3) XState-like ids with `#root` anchors
+3. XState-like ids with `#root` anchors
 
 - Allow `"#start.success"` for absolute, `"^"` for parent, etc.
 - Pros: Familiar to many; still string-based.
@@ -175,9 +175,9 @@ You can stage typing complexity to keep diffs small:
 - v1: Keep external `createStateMachine` as-is; add `createNestedConfig(configNested)` that returns a plain
   `MachineConfig`. The nested config can be typed loosely at first, then tightened.
 - v2: Use conditional and recursive types to infer the union of leaf path strings and allowed events:
-    - Derive `LeafPaths<TConfig>` as a union of template-literal strings
-    - Derive `Transitions<TConfig, TEvent>` from merged ancestor/child `on` maps
-    - Use `as const` configs to keep literal types
+  - Derive `LeafPaths<TConfig>` as a union of template-literal strings
+  - Derive `Transitions<TConfig, TEvent>` from merged ancestor/child `on` maps
+  - Use `as const` configs to keep literal types
 
 This way, users still get autocompletion on `machine.send(event)` and `state.value` as a union of fully qualified leaf
 states.
@@ -187,40 +187,40 @@ states.
 ### Edge cases and tricky parts to watch
 
 - Parent/child effect composition
-    - Ensure parent `run` executes when entering any of its descendants and cleans up only when leaving the entire
-      subtree.
-    - The composition strategy (collect cleanups in order, run reverse) handles this.
+  - Ensure parent `run` executes when entering any of its descendants and cleans up only when leaving the entire
+    subtree.
+  - The composition strategy (collect cleanups in order, run reverse) handles this.
 - Transition within same parent vs across parents
-    - Same parent (e.g., `start.idle -> start.loading`): only child cleanups/enters should run. With composed `run`,
-      this happens naturally because both leafs include the parent’s `run` in their composition; moving between leaves
-      cleans up the old leaf’s child portion and enters the new leaf’s child portion. Parent `run` will be re-invoked
-      unless you deduplicate; see next bullet.
-    - Optimization: If you want strict HSM semantics, you might avoid re-running identical ancestor `run`s for common
-      prefixes. That requires the runtime to be hierarchy-aware. If you keep the runtime flat, the simple approach will
-      re-run parent `run` on every leaf change. Decide whether that’s acceptable. Many small machines are fine with it;
-      otherwise a slightly smarter runtime that tracks the path and runs only the LCA boundary effects is needed.
+  - Same parent (e.g., `start.idle -> start.loading`): only child cleanups/enters should run. With composed `run`,
+    this happens naturally because both leafs include the parent’s `run` in their composition; moving between leaves
+    cleans up the old leaf’s child portion and enters the new leaf’s child portion. Parent `run` will be re-invoked
+    unless you deduplicate; see next bullet.
+  - Optimization: If you want strict HSM semantics, you might avoid re-running identical ancestor `run`s for common
+    prefixes. That requires the runtime to be hierarchy-aware. If you keep the runtime flat, the simple approach will
+    re-run parent `run` on every leaf change. Decide whether that’s acceptable. Many small machines are fine with it;
+    otherwise a slightly smarter runtime that tracks the path and runs only the LCA boundary effects is needed.
 - Event bubbling and shadowing
-    - Child `on` overrides parent; unhandled events bubble to parent.
-    - Confirm desired behavior for multiple ancestor levels.
+  - Child `on` overrides parent; unhandled events bubble to parent.
+  - Confirm desired behavior for multiple ancestor levels.
 - Targets pointing to composite states
-    - Always resolve to the initial leaf; if missing, treat as config error.
+  - Always resolve to the initial leaf; if missing, treat as config error.
 - Async `run` and synthetic `SUCCESS`/`ERROR`
-    - Today you emit `"SUCCESS"`/`"ERROR"`. Names could collide with user events across levels. Consider scoping them or
-      documenting reserved event names.
+  - Today you emit `"SUCCESS"`/`"ERROR"`. Names could collide with user events across levels. Consider scoping them or
+    documenting reserved event names.
 - Cleanup ordering
-    - Confirm that cleanup runs bottom-up (leaf to root). The composed cleanup makes that explicit.
+  - Confirm that cleanup runs bottom-up (leaf to root). The composed cleanup makes that explicit.
 - Name collisions and delimiters
-    - If using `.` or `/`, disallow in user-provided state ids, or escape them in the compiler.
+  - If using `.` or `/`, disallow in user-provided state ids, or escape them in the compiler.
 - Cycles and dead targets
-    - During flattening, validate that all transition targets resolve to known leaf states. Detect cycles that never hit
-      a leaf if you support transitions to composites without an `initial`.
+  - During flattening, validate that all transition targets resolve to known leaf states. Detect cycles that never hit
+    a leaf if you support transitions to composites without an `initial`.
 - Missing `initial` in composites
-    - Enforce at compile time or throw at runtime when flattening.
+  - Enforce at compile time or throw at runtime when flattening.
 - `nextEvents` semantics
-    - Should `nextEvents` reflect merged bubbling events? Usually yes, expose the merged `on` for the current leaf.
+  - Should `nextEvents` reflect merged bubbling events? Usually yes, expose the merged `on` for the current leaf.
 - State value shape
-    - You can keep `state.value` as a path string. If you later want structured state, you could add
-      `state.path: string[]` without breaking changes.
+  - You can keep `state.value` as a path string. If you later want structured state, you could add
+    `state.path: string[]` without breaking changes.
 
 ---
 
@@ -241,10 +241,10 @@ approach first and only move to LCA execution if you hit performance or semantic
 
 - Feasible: Yes, with a small, isolated compile step and minimal runtime changes.
 - Minimal-diff plan:
-    1) Introduce a nested config type and a `compileNested` function that outputs your existing `MachineConfig`.
-    2) Use delimited path strings for leaf state ids; document the delimiter rule.
-    3) Compose ancestor `run`s and merged `on` maps at compile time; resolve composite targets to leaf initials.
-    4) Optionally add relative target syntax later.
+  1. Introduce a nested config type and a `compileNested` function that outputs your existing `MachineConfig`.
+  2. Use delimited path strings for leaf state ids; document the delimiter rule.
+  3. Compose ancestor `run`s and merged `on` maps at compile time; resolve composite targets to leaf initials.
+  4. Optionally add relative target syntax later.
 - Revisit runtime only if you need optimized enter/exit for shared ancestors.
 
 If you want, I can sketch the `compileNested` function and an accompanying minimal test that demonstrates parent
