@@ -19,8 +19,8 @@ function getErrorMessage(meta: ErrorMeta): string {
       const to = meta.to ?? "<unknown>";
       return (
         `State enter effect threw. The run() of state "${to}" raised an error. ` +
-        `Tip: to handle this inside the machine, define an "ERROR" transition for state "${to}" (e.g. states["${to}"].on.ERROR = "<recover>") so the machine can move to a safe state and receive the original error as payload. ` +
-        `Original error is available as err.cause. | ${JSON.stringify(meta)}`
+        `Tip: to handle this inside the machine, define an "ERROR" transition for state "${to}" (e.g., states["${to}"].on.ERROR = "<recover>") so the machine can move to a safe state and receive the original error as payload. ` +
+        `The original error is available as err.cause. | ${JSON.stringify(meta)}`
       );
     }
     case "cleanup": {
@@ -29,15 +29,15 @@ function getErrorMessage(meta: ErrorMeta): string {
       return (
         `State cleanup function threw. The transition from "${from}" to "${to}" was aborted and the previous state is kept. ` +
         `Make cleanup functions safe: ensure idempotency, check for null/undefined, and wrap teardown in try/catch to avoid throwing. ` +
-        `Original error is available as err.cause. | ${JSON.stringify(meta)}`
+        `The original error is available as err.cause. | ${JSON.stringify(meta)}`
       );
     }
     case "init": {
-      const st = meta.from ?? meta.to ?? "<initial>";
+      const state = meta.from ?? meta.to ?? "<initial>";
       return (
-        `Initial state's run() threw during machine setup (state "${st}"). ` +
+        `Initial state's run() threw during machine setup (state "${state}"). ` +
         `You can remediate by defining an "ERROR" transition on the initial state to route to a safe state, or by catching inside run() and calling send("ERROR", err). ` +
-        `Original error is available as err.cause. | ${JSON.stringify(meta)}`
+        `The original error is available as err.cause. | ${JSON.stringify(meta)}`
       );
     }
   }
