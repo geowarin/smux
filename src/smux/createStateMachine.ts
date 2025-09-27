@@ -66,7 +66,7 @@ export function createStateMachine<TState extends string, TEvent extends string>
     try {
       cleanup?.();
     } catch (e) {
-      throw new SmuxError("cleanup threw", { phase: "cleanup", ...meta }, { cause: e });
+      throw new SmuxError({ phase: "cleanup", ...meta }, { cause: e });
     } finally {
       cleanup = undefined;
     }
@@ -111,7 +111,7 @@ export function createStateMachine<TState extends string, TEvent extends string>
       const beforeToken = token;
       guardedSend("ERROR" as TEvent, e);
       if (token === beforeToken) {
-        throw new SmuxError("run threw", { phase: "enter", ...meta }, { cause: e });
+        throw new SmuxError({ phase: "enter", ...meta }, { cause: e });
       }
     }
   }
@@ -163,7 +163,7 @@ export function createStateMachine<TState extends string, TEvent extends string>
   try {
     runEnterEffect({ to: currentState });
   } catch (e) {
-    throw new SmuxError("initial run threw", { phase: "init", from: currentState }, { cause: e });
+    throw new SmuxError({ phase: "init", from: currentState }, { cause: e });
   }
 
   return machine;
