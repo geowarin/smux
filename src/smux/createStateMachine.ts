@@ -104,11 +104,7 @@ export function createStateMachine<TState extends string, TEvent extends string>
       const beforeToken = token;
       guardedSend("ERROR" as TEvent, e);
       if (token === beforeToken) {
-        throw new SmuxError(
-          "run threw",
-          { phase: "enter", state: currentState, from, to: currentState, event },
-          { cause: e },
-        );
+        throw new SmuxError("run threw", { phase: "enter", state: currentState, from, event }, { cause: e });
       }
     }
   }
