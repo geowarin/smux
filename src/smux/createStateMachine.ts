@@ -89,13 +89,47 @@ export function createStateMachine<
     };
   }
 
+  function isFunction(
+    value: unknown,
+  ): value is (...args: unknown[]) => unknown {
+    return typeof value === "function";
+  }
+  function isPromiseLike(value: unknown): value is Promise<unknown> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const then = (value as any)?.then;
+    return typeof then === "function";
+  }
+  function getCurrentOnOrEmpty(): Partial<Record<TEvent, string>> {
+    return (getCurrentOn() ??
+      ({} as Partial<Record<TEvent, string>>)) as Partial<
+      Record<TEvent, string>
+    >;
+  }
+  function dispatchWithPayload(
+    sendFn: (event: TEvent) => void,
+    myToken: symbol,
+    event: TEvent,
+    payload: unknown,
+  ) {
+    if (token !== myToken) {
+      return;
+    }
+    lastPayload = payload;
+    try {
+      sendFn(event);
+    } finally {
+      lastPayload = undefined;
+    }
+  }
+
   function runEnterEffect() {
     const effect = config.states[currentState]?.run as
       | ((ctx: RunContext<TEvent>) => void | (() => void) | Promise<unknown>)
       | undefined;
-    if (typeof effect !== "function") {
+    if (!isFunction(effect)) {
       return;
     }
+
     const myToken = token;
     const guardedSend = (event: TEvent) => {
       if (token !== myToken) {
@@ -103,22 +137,19 @@ export function createStateMachine<
       }
       machine.send(event);
     };
-    const maybeCleanupOrPromise = effect({
-      send: guardedSend,
-      payload: lastPayload,
-    });
+
+    const result = effect({ send: guardedSend, payload: lastPayload });
+
     // clear payload after delivering it to the effect of the entered state
     lastPayload = undefined;
-    if (typeof maybeCleanupOrPromise === "function") {
-      cleanup = maybeCleanupOrPromise as () => void;
+
+    if (isFunction(result)) {
+      cleanup = result as () => void;
       return;
     }
-    // if it looks like a promise, wire SUCCESS/ERROR
-    const maybeThen = (maybeCleanupOrPromise as any)?.then;
-    if (maybeThen && typeof maybeThen === "function") {
-      // dev-time check for required transitions
-      const on = getCurrentOn() ?? ({} as Partial<Record<TEvent, string>>);
-      // if (process?.env?.NODE_ENV !== "production") {
+
+    if (isPromiseLike(result)) {
+      const on = getCurrentOnOrEmpty();
       const hasSuccess = Object.prototype.hasOwnProperty.call(on, "SUCCESS");
       const hasError = Object.prototype.hasOwnProperty.call(on, "ERROR");
       if (!hasSuccess || !hasError) {
@@ -127,30 +158,15 @@ export function createStateMachine<
           `[smux] State "${currentState}" returned a Promise from run() but is missing transitions for SUCCESS and/or ERROR.`,
         );
       }
-      // }
-      (maybeCleanupOrPromise as Promise<unknown>)
-        .then((value) => {
-          if (token !== myToken) {
-            return;
-          }
-          lastPayload = value;
-          try {
-            guardedSend("SUCCESS" as TEvent);
-          } finally {
-            lastPayload = undefined;
-          }
-        })
-        .catch((err) => {
-          if (token !== myToken) {
-            return;
-          }
-          lastPayload = err;
-          try {
-            guardedSend("ERROR" as TEvent);
-          } finally {
-            lastPayload = undefined;
-          }
-        });
+
+      (result as Promise<unknown>)
+        .then((value) =>
+          dispatchWithPayload(guardedSend, myToken, "SUCCESS" as TEvent, value),
+        )
+        .catch((err) =>
+          dispatchWithPayload(guardedSend, myToken, "ERROR" as TEvent, err),
+        )
+        .catch(() => {});
     }
   }
 
