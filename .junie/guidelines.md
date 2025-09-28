@@ -34,6 +34,7 @@
 - Prefer interfaces to types.
 - Always add brackets after if statements and for loops.
 - Use descriptive variable names without being too lengthy, no abbreviations.
+- Do not use `any` or `unknown` types unless absolutely necessary.
 
 ## Notes for Junie
 
@@ -43,10 +44,13 @@
 
 ## Repository tooling
 
-- Package manager: pnpm
-- The project is a monorepo using pnpm workspaces and containing two projects
+The project is a monorepo using pnpm workspaces and containing two projects:
   - a state machine library, smux in packages/smux 
   - a demo React project, using smux in packages/react-app
+
+However: this is not relevant most of the time as all the commands you need are available from the parent package.json.
+
+- Package manager: pnpm
 - Formatter: Prettier
 - Linter: Oxlint
 - Test runner: Vitest (coverage via @vitest/coverage-v8)

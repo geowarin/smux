@@ -10,7 +10,7 @@
     "lint": "oxlint .",
     "typecheck": "tsgo -b --noEmit",
     "preview": "vite preview",
-    "format": "prettier . --write src/"
+    "format": "prettier --write src/"
   },
   "dependencies": {
     "mermaid": "^11.12.0",

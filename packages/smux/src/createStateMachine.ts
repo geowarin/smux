@@ -14,14 +14,14 @@ export interface RunContext<TState extends string = string, TEvent extends strin
 }
 
 export type StateConfig<TState extends string = string, TEvent extends string = string> = {
-  on?: Record<string, string>;
+  on?: Partial<Record<TEvent, TState>>;
   /** Effect that runs on entering the state. If it returns a function, it will be called when exiting the state. */
   run?: (ctx: RunContext<TState, TEvent>) => void | (() => void) | Promise<unknown>;
 };
 
 export type MachineConfig<TState extends string = string, TEvent extends string = string> = {
   initial: TState;
-  states: Record<TState, StateConfig<TState, TEvent> & { on?: Partial<Record<TEvent, TState>> }>;
+  states: Record<TState, StateConfig<TState, TEvent>>;
 };
 
 export type MachineState<TState extends string = string, TEvent extends string = string> = {
