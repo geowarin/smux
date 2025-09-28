@@ -30,8 +30,6 @@
     "access": "public"
   },
   "scripts": {
-    "predev": "pnpm build",
-    "dev": "tsdown --watch",
     "build": "tsdown",
     "check": "pnpm format && pnpm run typecheck && pnpm run lint",
     "lint": "oxlint .",

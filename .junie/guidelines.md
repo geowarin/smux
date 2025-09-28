@@ -44,16 +44,10 @@
 ## Repository tooling
 
 - Package manager: pnpm
+- The project is a monorepo using pnpm workspaces and containing two projects
+  - a state machine library, smux in packages/smux 
+  - a demo React project, using smux in packages/react-app
 - Formatter: Prettier
 - Linter: Oxlint
 - Test runner: Vitest (coverage via @vitest/coverage-v8)
 
-## Command reference
-
-- `pnpm prettier:write` # applies Prettier to the repo
-- `pnpm lint` # runs Oxlint
-- `pnpm typecheck` # fast TS type-check using ts-go (@typescript/native-preview)
-- `pnpm test` # runs Vitest (single run)
-- `pnpm test:watch` # runs Vitest in watch mode (useful locally)
-- `pnpm test:coverage` # runs Vitest with coverage
-- `pnpm build` # builds the project
